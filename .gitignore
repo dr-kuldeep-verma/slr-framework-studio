@@ -3,17 +3,17 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .eggs/
-build/
-dist/
+/build/
+/dist/
 .venv/
 venv/
-env/
+/env/
 
 # Testing
 .pytest_cache/
 .coverage
 coverage.xml
-htmlcov/
+/htmlcov/
 
 # PyInstaller working files
 packaging/build/
@@ -32,8 +32,19 @@ packaging/vendor/
 *.slr
 *.slr-wal
 *.slr-shm
-demo-review/
-exports/
+
+# Output folders a reviewer creates while working, at the top level only.
+#
+# The leading slash matters and its absence was a real bug: written as
+# `exports/`, this pattern matches a directory of that name at ANY depth,
+# and it silently swallowed src/slr_studio/exports/ -- ten modules that
+# write every Word, PDF, Excel and REFI-QDA output the application
+# produces. They were never committed, so the repository on GitHub was
+# missing a whole package and any build made from it died on startup with
+# "No module named 'slr_studio.exports'". A test now asserts that nothing
+# under src/ is ignored.
+/demo-review/
+/exports/
 
 # Editors and operating systems
 .vscode/

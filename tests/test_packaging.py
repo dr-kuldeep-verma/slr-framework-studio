@@ -281,6 +281,65 @@ class TestTheLicenceIsConsistent:
         ]
         assert not missing, f"not mentioned in THIRD-PARTY-NOTICES.md: {missing}"
 
+    def test_no_source_file_is_hidden_from_git(self):
+        """The whole `exports` package was invisible to git for a week.
+
+        `.gitignore` carried `exports/` to keep a reviewer's output folder
+        out of the repository. A gitignore pattern with no leading slash
+        matches at *any* depth, so it also matched
+        `src/slr_studio/exports/` -- ten modules that write every Word,
+        PDF, Excel and REFI-QDA output the application produces. They were
+        never committed. The repository on GitHub was missing a package,
+        and the Windows build made from it died on startup with
+        "No module named 'slr_studio.exports'".
+
+        Nothing in the application could have caught that: the code was
+        right, the tests passed, and the fault was in what reached the
+        repository. This is the check that would have.
+        """
+        import subprocess
+
+        source_files = sorted(
+            str(p.relative_to(ROOT))
+            for p in (ROOT / "src").rglob("*.py")
+            if "__pycache__" not in p.parts
+        )
+        assert source_files, "no source files found; this test is not running"
+
+        result = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            cwd=ROOT,
+            input="\n".join(source_files),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode not in (0, 1):
+            pytest.skip(f"git unavailable here: {result.stderr.strip()}")
+        ignored = [line for line in result.stdout.splitlines() if line.strip()]
+        assert not ignored, (
+            "these source files are ignored by .gitignore and would never "
+            "be committed:\n  " + "\n  ".join(ignored)
+            + "\n\nA directory pattern needs a leading slash to mean 'at the "
+            "top level only'."
+        )
+
+    def test_every_package_under_src_is_importable_from_the_tree(self):
+        """A package with no `__init__.py` is collected by nothing.
+
+        Separate from the gitignore fault above and with the same symptom
+        at the far end: a missing module at runtime, on a user's machine,
+        with the traceback pointing at the import rather than the cause.
+        """
+        missing = [
+            str(folder.relative_to(ROOT))
+            for folder in (ROOT / "src" / "slr_studio").iterdir()
+            if folder.is_dir()
+            and folder.name != "__pycache__"
+            and any(folder.glob("*.py"))
+            and not (folder / "__init__.py").is_file()
+        ]
+        assert not missing, f"packages with no __init__.py: {missing}"
+
     def test_the_build_ships_the_licence_beside_the_executable(self):
         """A downloaded folder that states no terms conveys no permission.
 
