@@ -355,6 +355,27 @@ class TestTheLicenceIsConsistent:
             "the PyInstaller spec does not bundle THIRD-PARTY-NOTICES.md"
         )
 
+    def test_linux_ci_installs_the_qt_system_libraries(self):
+        """Without these, every UI test fails at collection on Linux.
+
+        libQt6Gui.so.6 links libEGL.so.1, libGL.so.1, libxkbcommon.so.0
+        and libdbus-1.so.3. GitHub's Ubuntu images do not ship them, and
+        `QT_QPA_PLATFORM=offscreen` does not help: that selects a platform
+        plugin, which happens long after the shared library has to load.
+
+        The Windows runners need none of it -- the PySide6 wheel carries
+        its own Qt DLLs -- which is exactly why this was easy to miss.
+        """
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        for package in ("libegl1", "libgl1", "libxkbcommon0", "libdbus-1-3"):
+            assert package in workflow, (
+                f"the Linux CI job no longer installs {package}; the Qt "
+                "tests will fail at collection with an ImportError that "
+                "says nothing about the cause"
+            )
+
     def test_the_installer_shows_the_licence(self):
         installer = (ROOT / "packaging" / "installer.iss").read_text(encoding="utf-8")
         assert "LicenseFile" in installer, (
