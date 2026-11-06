@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# PyInstaller working files
+packaging/build/
+packaging/dist/
+*.manifest
+
+# Vendored binaries: Tesseract and fonts are downloaded at build time rather
+# than committed. They are large, and redistributing them has licence terms
+# of its own that this repository does not take on.
+packaging/vendor/
+
+# Review projects. A .slr file holds a reviewer's corpus, their decisions and
+# in some cases full texts they are licensed to read but not to redistribute.
+# Nothing of the sort belongs in a public repository, and this line is the
+# reason it will not arrive there by accident.
+*.slr
+*.slr-wal
+*.slr-shm
+demo-review/
+exports/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

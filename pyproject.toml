@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slr-framework-studio"
+version = "0.1.0"
+description = "PRISMA 2020 systematic review workbench: from database exports to an evidence-graded theoretical framework."
+requires-python = ">=3.11"
+# An SPDX string: the table form is deprecated and warns on every
+# build. This must agree with LICENSE and CITATION.cff, and a test
+# checks that it does.
+license = "AGPL-3.0-or-later"
+authors = [{ name = "SLR Framework Studio" }]
+
+dependencies = [
+    "pydantic>=2.6",
+    "python-dateutil>=2.9",
+    "PyMuPDF>=1.24",
+    "openpyxl>=3.1",
+    "httpx>=0.27",
+    "keyring>=25.0",
+    # The framework figures are a deliverable the spec's acceptance test
+    # names, so neither of these is optional in the packaged application:
+    # python-pptx writes the editable PowerPoint figure and Pillow draws the
+    # PNG.
+    "python-pptx>=0.6.23",
+    "Pillow>=10.0",
+    # Not optional either: Section 12 asks for the PRISMA diagram, the
+    # checklist, the Methods draft and the synthesis tables as Word files,
+    # and for every figure as a PDF. These were under an optional extra
+    # until a Windows build installed without them and those exports would
+    # have failed one by one on the reviewer's machine.
+    "python-docx>=1.1",
+    "reportlab>=4.1",
+]
+
+[project.optional-dependencies]
+gui = [
+    "PySide6>=6.6",
+]
+ocr = [
+    # Only needed for scanned PDFs; the app says so when a page cannot be read
+    # without them rather than failing. Pillow is a core dependency because
+    # the framework figures need it.
+    "pytesseract>=0.3.10",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pyinstaller>=6.6",
+]
+
+[project.scripts]
+slr = "slr_studio.cli:main"
+slr-studio = "slr_studio.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# Without this, setuptools finds slr_studio.demo.__pycache__, decides it is
+# an importable package, and warns on every build that it is being ignored.
+exclude = ["*.__pycache__", "*.__pycache__.*"]
+
+[tool.setuptools.package-data]
+slr_studio = ["resources/**/*", "demo/**/*", "demo/pdfs/*.pdf"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["error::DeprecationWarning:slr_studio.*"]

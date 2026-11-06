@@ -1,0 +1,34 @@
+# Windows version resource, read by PyInstaller's `version=` argument.
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(0, 1, 0, 0),
+    prodvers=(0, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          '040904B0',
+          [
+            StringStruct('CompanyName', 'SLR Framework Studio'),
+            StringStruct('FileDescription', 'SLR Framework Studio'),
+            StringStruct('FileVersion', '0.1.0.0'),
+            StringStruct('InternalName', 'SLRFrameworkStudio'),
+            StringStruct('LegalCopyright',
+                         'Copyright (C) 2026 Kuldeep Verma. Licensed under the GNU AGPL v3 or later.'),
+            StringStruct('OriginalFilename', 'SLRFrameworkStudio.exe'),
+            StringStruct('ProductName', 'SLR Framework Studio'),
+            StringStruct('ProductVersion', '0.1.0.0'),
+          ],
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])]),
+  ],
+)

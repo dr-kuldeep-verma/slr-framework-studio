@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: SLR Framework Studio
+message: >-
+  If you use this software in a published review, please cite it, and please
+  state in your methods which parts of the review it carried out. The
+  application generates an AI-use statement from its own log; it is written
+  to be quoted.
+type: software
+authors:
+  - given-names: Kuldeep
+    family-names: Verma
+    orcid: "https://orcid.org/0000-0002-7810-4796"
+repository-code: "https://github.com/dr-kuldeep-verma/slr-framework-studio"
+abstract: >-
+  A desktop application that takes a systematic literature review from
+  database exports to an evidence-graded theoretical framework, following
+  PRISMA 2020. A language model makes a first pass at every judgement and a
+  human confirms or overrides each one before it counts. Every decision
+  stores the model, a hash of its prompt and input, its output and a
+  timestamp in a hash-chained audit log, and every claim in every output
+  traces to a stored record, page and quotation.
+keywords:
+  - systematic review
+  - PRISMA
+  - evidence synthesis
+  - research software
+license: AGPL-3.0-or-later
+version: 0.1.0

@@ -1,0 +1,87 @@
+name: Release
+
+# Tag a version and this builds the Windows application and attaches it to a
+# GitHub release, so somebody downloading it never has to install Python or
+# run a build script.
+#
+#   git tag v0.1.0
+#   git push origin v0.1.0
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows application
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui,dev]"
+          pip install pyinstaller
+
+      - name: Run the tests
+        # Nothing is released that does not pass on the platform it is
+        # released for.
+        run: pytest -q
+
+      - name: Build
+        run: pyinstaller packaging/slr_studio.spec --noconfirm
+
+      - name: Check it starts, and runs a review end to end
+        run: |
+          dist/SLRFrameworkStudio/slr.exe --version
+          dist/SLRFrameworkStudio/slr.exe demo "${{ runner.temp }}/demo" --stage gaps
+          dist/SLRFrameworkStudio/slr.exe export-all "${{ runner.temp }}/demo"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          Compress-Archive -Path dist/SLRFrameworkStudio/* `
+            -DestinationPath "SLRFrameworkStudio-$version-windows-x64.zip"
+          Get-FileHash "SLRFrameworkStudio-$version-windows-x64.zip" `
+            -Algorithm SHA256 | Format-List | Out-File `
+            "SLRFrameworkStudio-$version-windows-x64.zip.sha256"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            SLRFrameworkStudio-*-windows-x64.zip
+            SLRFrameworkStudio-*-windows-x64.zip.sha256
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Installing
+
+            1. Download the `.zip` below.
+            2. Right-click it, choose **Properties**, tick **Unblock**, then
+               extract it. Windows marks anything downloaded from the
+               internet; without this step SmartScreen will refuse to run it.
+            3. Run `SLRFrameworkStudio.exe` from the extracted folder. The
+               whole folder is the program — move the folder, not the .exe.
+
+            This build is not code-signed, so SmartScreen will warn the first
+            time. Choose **More info** then **Run anyway**, or check the
+            SHA-256 against the file beside the download.
+
+            ## Trying it without an API key
+
+            **Tools → Build demonstration project…** builds a small review
+            from end to end against a mock model. It needs no key, costs
+            nothing and reaches the internet not at all. Nothing in it is a
+            finding about anything.

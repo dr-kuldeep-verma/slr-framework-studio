@@ -1,2 +1,67 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# How line endings are stored and checked out.
+#
+# Without this file the answer depends on each contributor's local Git
+# configuration, which is how a repository ends up with the same file
+# committed twice with different endings, and how a shell step in a Linux
+# CI runner starts failing with "$'\r': command not found" because someone
+# committed from Windows with autocrlf turned off.
+#
+# The rule here: LF in the repository, always. What lands in each working
+# copy is decided per file type below.
+
+# Everything Git decides is text is stored with LF.
+* text=auto eol=lf
+
+# --------------------------------------------------------------- Windows ---
+# A batch file must arrive with CRLF. cmd.exe parses `goto :label` by line,
+# and build-windows.bat relies on exactly that to report a build that
+# produced an executable which does not run. With LF endings that branch can
+# be misparsed, and the script reports success for a broken build.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+*.iss  text eol=crlf
+
+# ----------------------------------------------------------------- Python ---
+*.py    text diff=python
+*.toml  text
+*.spec  text diff=python
+*.cff   text
+*.yml   text
+*.yaml  text
+*.md    text diff=markdown
+*.txt   text
+*.xml   text
+
+# ------------------------------------------------------- bibliographic ------
+# Reference manager exports. Text, but never to be "fixed up": these are
+# test fixtures whose bytes the importers are asserted against.
+*.ris   text eol=lf
+*.nbib  text eol=lf
+*.csv   text eol=lf
+
+# ----------------------------------------------------------------- binary ---
+# Named rather than left to Git's content detection. A PDF or a PNG put
+# through line-ending conversion is a corrupted file, and these are the
+# fixtures the full-text stage and the demonstration project read: the
+# failure would appear as "this PDF cannot be opened", a long way from its
+# cause.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
+*.xlsx  binary
+*.docx  binary
+*.pptx  binary
+*.qdpx  binary
+*.slr   binary
+*.ttf   binary
+*.otf   binary
+
+# ------------------------------------------------------------- GitHub UI ----
+# Keep generated and vendored material out of the language statistics and
+# out of pull request diffs by default.
+docs/screenshots/* linguist-documentation

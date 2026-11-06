@@ -1,0 +1,84 @@
+name: Tests
+
+# Runs on Linux and on Windows. Windows is not a formality: this application
+# is built and installed as a Windows executable, and until this workflow
+# existed nobody had ever run it there. Three packaging faults were found the
+# first time the build was attempted at all.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui,dev]"
+
+      - name: Run the tests
+        # The Qt tests need a display. Linux gets a virtual one; Windows
+        # runners have a real session and need nothing.
+        env:
+          QT_QPA_PLATFORM: ${{ matrix.os == 'ubuntu-latest' && 'offscreen' || '' }}
+        run: pytest -q
+
+  build:
+    name: Build the Windows executable
+    runs-on: windows-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui]"
+          pip install pyinstaller
+
+      - name: Build
+        run: pyinstaller packaging/slr_studio.spec --noconfirm
+
+      - name: Check the built executable actually starts
+        # slr.exe, not the windowed one: a windowed build has no
+        # console on Windows, so its output would go nowhere and
+        # this check would pass on silence.
+        # A build that produces a file which crashes on launch is a build
+        # that failed, and PyInstaller will not tell you so.
+        run: dist/SLRFrameworkStudio/slr.exe --version
+
+      - name: Build a demonstration project with the built executable
+        # End to end, against the mock model: no API key, no network.
+        run: |
+          dist/SLRFrameworkStudio/slr.exe demo "${{ runner.temp }}/demo" --stage gaps
+          dist/SLRFrameworkStudio/slr.exe export-all "${{ runner.temp }}/demo"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SLRFrameworkStudio-windows
+          path: dist/SLRFrameworkStudio/
+          retention-days: 14

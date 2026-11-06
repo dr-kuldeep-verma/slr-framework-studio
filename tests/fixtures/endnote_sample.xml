@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xml>
+<records>
+<record>
+<database name="My Library" path="C:\Users\reviewer\My Library.enl">My Library</database>
+<ref-type name="Journal Article">17</ref-type>
+<contributors>
+<authors>
+<author><style face="normal" font="default" size="100%">Silva, J. R.</style></author>
+<author><style face="normal" font="default" size="100%">Moreira, P.</style></author>
+</authors>
+</contributors>
+<titles>
+<title><style face="normal" font="default" size="100%">Does participation reduce conflict? A longitudinal study of protected area tourism</style></title>
+<secondary-title><style face="normal" font="default" size="100%">Conservation and Society Letters</style></secondary-title>
+</titles>
+<periodical>
+<full-title>Conservation and Society Letters</full-title>
+</periodical>
+<pages>155-172</pages>
+<volume>8</volume>
+<number>3</number>
+<dates><year>2023</year></dates>
+<abstract><style face="normal">Eleven years of conflict incident records from four protected areas are modelled against the introduction of participatory management committees.</style></abstract>
+<isbn>2050-1234</isbn>
+<electronic-resource-num>10.1111/csl.12345</electronic-resource-num>
+<keywords>
+<keyword>conflict</keyword>
+<keyword>protected areas</keyword>
+</keywords>
+<language>English</language>
+<urls><related-urls><url>https://doi.org/10.1111/csl.12345</url></related-urls></urls>
+<accession-num>ENW0001</accession-num>
+</record>
+<record>
+<ref-type name="Book Section">5</ref-type>
+<contributors>
+<authors><author>Brennan, Orla</author></authors>
+<secondary-authors><author>Editor, A.</author></secondary-authors>
+</contributors>
+<titles>
+<title>Co-production in destination governance</title>
+<secondary-title>Handbook of Tourism Governance</secondary-title>
+</titles>
+<pages>112-130</pages>
+<dates><year>2017</year></dates>
+<publisher>Academic House</publisher>
+<abstract>A conceptual chapter distinguishing co-production from consultation in destination governance.</abstract>
+<keywords><keyword>co-production</keyword></keywords>
+<language>English</language>
+</record>
+</records>
+</xml>
