@@ -136,6 +136,18 @@ class OpenAICompatibleProvider(Provider):
         self.api_key = api_key or get_key("openai_compatible")
         self.base_url = base_url.rstrip("/")
         self.json_mode = json_mode
+        #: Set once an endpoint refuses a separate system message (some
+        #: open models served through Google's API do). The instructions
+        #: then travel at the head of the user message, word for word.
+        self.fold_system = False
+
+    def _messages(self, system: str, user: str) -> list[dict[str, str]]:
+        if self.fold_system:
+            return [{"role": "user", "content": f"{system}\n\n---\n\n{user}"}]
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
 
     def complete(self, *, system: str, user: str, max_tokens: int = 1024,
                  temperature: float = 0.0, timeout: float = 120.0) -> LLMResponse:
@@ -148,10 +160,7 @@ class OpenAICompatibleProvider(Provider):
             "model": self.model,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            "messages": self._messages(system, user),
         }
         if self.json_mode:
             payload["response_format"] = {"type": "json_object"}
@@ -160,17 +169,28 @@ class OpenAICompatibleProvider(Provider):
             "content-type": "application/json",
         }
         url = f"{self.base_url}/chat/completions"
-        try:
-            data = _post(url, headers, payload, timeout)
-        except ProviderError as exc:
-            # Not every endpoint that speaks this API accepts its JSON mode.
-            # The answer is parsed and validated as JSON either way, so one
-            # that refuses it is asked again without it, and not asked again.
-            if not (self.json_mode and "response_format" in str(exc)):
-                raise
-            self.json_mode = False
-            payload.pop("response_format", None)
-            data = _post(url, headers, payload, timeout)
+        # Not every endpoint that speaks this API accepts all of it. Two
+        # refusals are worked around, each once and then remembered: JSON
+        # mode (the answer is parsed and validated as JSON either way), and a
+        # separate system message (its words are sent unchanged, ahead of the
+        # record). Any other refusal is raised as it came.
+        for _ in range(3):
+            try:
+                data = _post(url, headers, payload, timeout)
+                break
+            except ProviderError as exc:
+                message = str(exc)
+                if self.json_mode and "response_format" in message:
+                    self.json_mode = False
+                    payload.pop("response_format", None)
+                elif not self.fold_system and (
+                    "instruction" in message.lower()
+                    or "system" in message.lower()
+                ) and getattr(exc, "retryable", True) is False:
+                    self.fold_system = True
+                    payload["messages"] = self._messages(system, user)
+                else:
+                    raise
         choices = data.get("choices") or [{}]
         text = (choices[0].get("message") or {}).get("content") or ""
         usage = data.get("usage") or {}

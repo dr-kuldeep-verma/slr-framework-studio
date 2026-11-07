@@ -215,3 +215,38 @@ class TestJsonModeFallback:
         p = providers.OpenAICompatibleProvider("gemini-x", api_key="k")
         with pytest.raises(ProviderError, match="bad model"):
             p.complete(system="s", user="u")
+
+
+class TestSystemInstructionFallback:
+    """Some open models served by Google (Gemma) refuse a separate system
+    message. One that does is sent the same words in the user message."""
+
+    def test_a_refused_system_message_is_folded_into_the_user_message(
+        self, monkeypatch
+    ):
+        from slr_studio.ai import providers
+        from slr_studio.ai.base import ProviderError
+
+        sent = []
+
+        def fake_post(url, headers, payload, timeout):
+            sent.append([m["role"] for m in payload["messages"]])
+            if payload["messages"][0]["role"] == "system":
+                error = ProviderError(
+                    "The provider rejected the request: Developer instruction "
+                    "is not enabled for models/gemma-4-31b-it"
+                )
+                error.retryable = False
+                raise error
+            assert payload["messages"][0]["content"].startswith("RULES")
+            assert payload["messages"][0]["content"].endswith("RECORD")
+            return {"model": "gemma-4-31b-it", "choices": [
+                {"message": {"content": "{}"}, "finish_reason": "stop"}]}
+
+        monkeypatch.setattr(providers, "_post", fake_post)
+        p = providers.OpenAICompatibleProvider(
+            "gemma-4-31b-it", api_key="k", json_mode=False
+        )
+        p.complete(system="RULES", user="RECORD")
+        p.complete(system="RULES", user="RECORD")
+        assert sent == [["system", "user"], ["user"], ["user"]]
