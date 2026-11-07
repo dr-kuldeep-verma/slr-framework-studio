@@ -1091,7 +1091,139 @@ def build_parser() -> argparse.ArgumentParser:
     p_audit.add_argument("--limit", type=int, default=50)
     p_audit.set_defaults(func=cmd_audit)
 
+    p_bench = sub.add_parser(
+        "benchmark",
+        help="score screening against a human-labelled dataset",
+        description=(
+            "Screen a labelled benchmark corpus and compare the result with "
+            "the decisions the original review's human screeners made. The "
+            "protocol is required and must come from that published review: "
+            "the eligibility wording drives the result, so a harness that "
+            "wrote its own would be marking its own homework."
+        ),
+    )
+    p_bench.add_argument("dataset", help="a labelled CSV (SYNERGY format)")
+    p_bench.add_argument(
+        "--protocol",
+        required=True,
+        help="path to a text file holding the review's eligibility criteria",
+    )
+    p_bench.add_argument("--out", help="where to write the report")
+    p_bench.add_argument(
+        "--sample-irrelevant",
+        type=int,
+        help=(
+            "screen every relevant record but only this many irrelevant "
+            "ones. Keeps recall exact and the cost affordable."
+        ),
+    )
+    p_bench.add_argument(
+        "--label-column",
+        help="override the gold-standard column (default: the "
+        "title/abstract screening label)",
+    )
+    p_bench.add_argument("--seed", type=int, default=20260101)
+    p_bench.add_argument(
+        "--licence", default="", help="the dataset's licence, for the report"
+    )
+    p_bench.add_argument(
+        "--reference", default="", help="DOI or URL of the review it came from"
+    )
+    p_bench.add_argument(
+        "--mock",
+        action="store_true",
+        help="run against the mock model: costs nothing, proves nothing "
+        "about a real model, useful for checking the harness",
+    )
+    p_bench.add_argument(
+        "--yes", action="store_true", help="skip the cost confirmation"
+    )
+    p_bench.set_defaults(func=cmd_benchmark)
+
     return parser
+
+
+def cmd_benchmark(args) -> int:
+    """Score screening against a labelled dataset and write the report."""
+    import tempfile
+
+    from .ai import AIClient, MockProvider
+    from .ai.settings import ModelSettings, provider_from_settings
+    from .evaluation.benchmark import run_benchmark
+    from .evaluation.datasets import load_csv, stratified_sample
+    from .evaluation.report import as_markdown
+
+    protocol = Path(args.protocol).read_text(encoding="utf-8").strip()
+    dataset = load_csv(
+        args.dataset,
+        label_column=args.label_column,
+        licence=args.licence,
+        reference=args.reference,
+    )
+    if args.sample_irrelevant is not None:
+        dataset = stratified_sample(
+            dataset, n_irrelevant=args.sample_irrelevant, seed=args.seed
+        )
+
+    facts = dataset.characteristics()
+    print(f"Dataset:   {facts['name']}")
+    print(f"Records:   {facts['n_records']} ({facts['n_relevant']} relevant)")
+    print(f"Label:     {facts['label_column']}")
+    print(
+        f"No abstract: {facts['n_without_abstract']} "
+        f"({facts['share_without_abstract']:.0%}) — screened on title alone"
+    )
+
+    # Two screeners per record, plus an adjudicator wherever they disagree.
+    # The floor is exact; the ceiling assumes they never agree.
+    low, high = 2 * facts["n_records"], 3 * facts["n_records"]
+    print(f"\nThis will make roughly {low:,} to {high:,} model calls.")
+
+    if args.mock:
+        print("Running against the mock model: no network, no cost.\n")
+        factory = lambda project: AIClient(  # noqa: E731
+            project, MockProvider(), stage="screen", sleep=lambda _: None
+        )
+    else:
+        settings = ModelSettings.load()
+        print(f"Model: {settings.model}")
+        if not args.yes:
+            reply = input("Go ahead? [y/N] ").strip().lower()
+            if reply not in ("y", "yes"):
+                print("Nothing was run.")
+                return 1
+        factory = lambda project: AIClient(  # noqa: E731
+            project, provider_from_settings(settings), stage="screen"
+        )
+
+    workspace = Path(tempfile.mkdtemp(prefix="slr-benchmark-"))
+    result = run_benchmark(
+        dataset,
+        protocol=protocol,
+        client_factory=factory,
+        workspace=workspace,
+        on_progress=lambda done, total, msg: print(
+            f"\r  {done}/{total}", end="", flush=True
+        ),
+    )
+    print()
+
+    report = as_markdown(result)
+    out = Path(args.out) if args.out else Path.cwd() / f"benchmark-{facts['name']}.md"
+    out.write_text(report, encoding="utf-8")
+    out.with_suffix(".json").write_text(
+        json.dumps(result.as_dict(), indent=2), encoding="utf-8"
+    )
+
+    s = result.score
+    print()
+    print(f"Workflow recall: {s.workflow_recall:.1%}" if s.workflow_recall is not None else "no relevant records")
+    print(f"Records lost:    {s.n_lost} of {s.n_relevant}")
+    print(f"Burden:          {s.n_to_human} of {s.n_records} records reach a human")
+    print(f"\nReport: {out}")
+    print(f"Data:   {out.with_suffix('.json')}")
+    print(f"Project kept at: {workspace}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,5 +1,7 @@
 # SLR Framework Studio
 
+[![DOI](https://zenodo.org/badge/1448088171.svg)](https://doi.org/10.5281/zenodo.24033383)
+
 A Windows desktop application that takes a systematic review from database
 exports to an evidence-graded theoretical framework, following PRISMA 2020 and
 keeping a full audit trail.
@@ -228,7 +230,7 @@ pyinstaller packaging\slr_studio.spec --noconfirm
 iscc packaging\installer.iss
 ```
 
-The result is `dist\installer\SLRFrameworkStudio-0.1.0-setup.exe`, a per-user
+The result is `dist\installer\SLRFrameworkStudio-0.1.1-setup.exe`, a per-user
 install that needs no administrator rights. Put a Windows Tesseract build in
 `packaging\vendor\tesseract` before building so OCR is bundled.
 
@@ -470,6 +472,28 @@ reports the first entry that was altered or removed. Nothing is ever
 hard-deleted; merged records are retired with `active = 0` so the PRISMA
 counts can always be rebuilt from the database.
 
+## Does it find the right studies?
+
+The test suite proves the application behaves as designed. It says nothing
+about whether the design finds the right papers, and no amount of passing
+tests substitutes for that.
+
+`slr benchmark` answers it: screen a corpus whose human screening decisions
+are already published, and compare. It reports recall with a confidence
+interval, the reviewer burden, and — by name — every relevant study the
+screener threw away.
+
+```bash
+slr benchmark data/Appenzeller-Herzog_2020.csv \
+    --protocol protocols/wilson.txt --sample-irrelevant 400 --mock
+```
+
+`docs/BENCHMARKING.md` explains where the datasets come from, which of the
+two gold-standard labels is the fair one, and what a benchmark cannot tell
+you. **No such evaluation has been run against a real model yet**, so this
+repository currently contains the means to answer the question and not the
+answer.
+
 ## Tests
 
 ```bash
@@ -695,3 +719,9 @@ reading this.
 also say in your methods which parts of the review it carried out. The
 application generates an AI-use statement from its own audit log, and it is
 written to be quoted.
+
+Every release is archived on Zenodo. To cite the software in general, use
+the concept DOI, which always resolves to the latest release:
+[10.5281/zenodo.24033383](https://doi.org/10.5281/zenodo.24033383). To cite
+the exact version you used, follow that link and take the DOI shown for
+your version, since a review should name the version that produced it.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slr-framework-studio"
-version = "0.1.0"
+version = "0.1.1"
 description = "PRISMA 2020 systematic review workbench: from database exports to an evidence-graded theoretical framework."
 requires-python = ">=3.11"
 # An SPDX string: the table form is deprecated and warns on every

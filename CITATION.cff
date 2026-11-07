@@ -11,6 +11,15 @@ authors:
     family-names: Verma
     orcid: "https://orcid.org/0000-0002-7810-4796"
 repository-code: "https://github.com/dr-kuldeep-verma/slr-framework-studio"
+# The concept DOI: it always resolves to the latest archived release.
+doi: 10.5281/zenodo.24033383
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.24033383
+    description: All versions (always resolves to the latest release)
+  - type: doi
+    value: 10.5281/zenodo.24033384
+    description: Version 0.1.0
 abstract: >-
   A desktop application that takes a systematic literature review from
   database exports to an evidence-graded theoretical framework, following
@@ -25,4 +34,5 @@ keywords:
   - evidence synthesis
   - research software
 license: AGPL-3.0-or-later
-version: 0.1.0
+version: 0.1.1
+date-released: 2026-11-07

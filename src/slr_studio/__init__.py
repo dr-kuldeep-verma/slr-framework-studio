@@ -7,7 +7,7 @@ Design rule for the whole package: AI proposes, a human disposes, and every
 decision of either kind is written to an append-only audit log.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __app_name__ = "SLR Framework Studio"
 __author__ = "Kuldeep Verma"
 __source_url__ = "https://github.com/dr-kuldeep-verma/slr-framework-studio"
