@@ -84,6 +84,39 @@ typical dataset have no abstract at all — a title and nothing else. That
 bounds what any screener can do and has nothing to do with the tool. Every
 report states it.
 
+## On a free API tier
+
+Free tiers cap requests per minute and per day, and a benchmark makes
+thousands. Three options make that workable:
+
+- `--requests-per-minute N` paces the calls. Set it a little under the
+  tier's per-minute limit, so no request is wasted on a refusal.
+- `--workspace FOLDER` keeps the run on disk. When the daily quota runs
+  out the run pauses, writes no report, and says so; the same command the
+  next day carries on where it stopped. Answers already received are
+  cached and never paid for twice, and screener agreement is computed over
+  the whole run, not the last day of it.
+- `--max-tokens N` raises the length allowed per answer. Models that think
+  before answering spend tokens doing so; if answers come back empty, raise
+  it.
+
+Gemini, through its OpenAI-compatible endpoint:
+
+```bash
+slr benchmark data/Appenzeller-Herzog_2020.csv \
+    --protocol protocols/wilson.txt --sample-irrelevant 400 \
+    --provider openai_compatible \
+    --base-url https://generativelanguage.googleapis.com/v1beta/openai \
+    --model <the exact model id from Google AI Studio> \
+    --requests-per-minute 8 --max-tokens 2000 \
+    --workspace work/wilson --out results/wilson.md
+```
+
+The key is entered under Tools > Model settings as the OpenAI-compatible
+endpoint's key. No price is on file for these models, so the estimate gives
+tokens but not money. Two things to report: that a free tier was used, and
+that a free tier's terms may let the provider use what is sent to it.
+
 ## What gets measured, and why these
 
 | Figure | What it means |

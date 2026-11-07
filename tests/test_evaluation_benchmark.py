@@ -297,4 +297,4 @@ class TestTheCostGate:
                 tiny_dataset, protocol=PROTOCOL, client_factory=factory,
                 workspace=tmp_path / "b", confirm=lambda estimate: False,
             )
-        assert getattr(provider, "calls", []) == []
+        assert provider.n_calls == 0

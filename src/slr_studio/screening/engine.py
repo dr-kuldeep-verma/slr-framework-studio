@@ -25,6 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Sequence
 
+from ..ai.base import RateLimitError
 from ..ai.client import AIClient, BudgetExceeded, CostEstimate
 from ..core.db import utc_now
 from ..core.hashing import sha256_text
@@ -576,14 +577,24 @@ class ScreeningEngine:
             try:
                 answer_a, _ = self._ask_screener("screener_a", record, systems["screener_a"], run_id)
                 answer_b, _ = self._ask_screener("screener_b", record, systems["screener_b"], run_id)
+                self._settle(run_id, record, answer_a, answer_b, adjudicator, outcome, actor)
             except BudgetExceeded as exc:
                 outcome.status = "paused"
                 outcome.messages.append(str(exc))
                 break
+            except RateLimitError as exc:
+                # A free tier's daily quota, most likely. Everything decided so
+                # far is committed and cached; running again carries on.
+                outcome.status = "paused"
+                outcome.messages.append(
+                    f"The provider's rate limit was reached ({exc}) after "
+                    f"{outcome.n_done} of {len(records)} records. Nothing already "
+                    "decided will be asked again when the run is resumed."
+                )
+                break
 
             decisions_a.append(answer_a.decision)
             decisions_b.append(answer_b.decision)
-            self._settle(run_id, record, answer_a, answer_b, adjudicator, outcome, actor)
             outcome.n_done = index
             if on_progress:
                 on_progress(index, len(records), f"Screened {index} of {len(records)}")

@@ -121,3 +121,55 @@ class TestTheRealPath:
         _run([str(data), "--protocol", str(protocol), "--budget", "5",
               "--out", str(tmp_path / "r.md")], monkeypatch)
         assert seen["settings"].budget_usd == 5.0
+
+
+class TestFreeTierOptions:
+    def test_requests_per_minute_throttles_the_provider(self, dataset, tmp_path,
+                                                       fake_network, monkeypatch):
+        from slr_studio.ai.throttle import ThrottledProvider
+
+        seen = []
+        real_init = ThrottledProvider.__init__
+
+        def spy(self, inner, per_minute, **kw):
+            seen.append(per_minute)
+            real_init(self, inner, per_minute, sleep=lambda s: None, **kw)
+
+        monkeypatch.setattr(ThrottledProvider, "__init__", spy)
+        data, protocol = dataset
+        code = _run([str(data), "--protocol", str(protocol),
+                     "--requests-per-minute", "8", "--out", str(tmp_path / "r.md")],
+                    monkeypatch)
+        assert code == 0
+        assert seen and seen[0] == 8
+
+    def test_a_paused_run_writes_no_report_and_says_how_to_continue(
+        self, dataset, tmp_path, monkeypatch, capsys
+    ):
+        from slr_studio.ai.base import RateLimitError
+
+        class Capped(MockProvider):
+            def __init__(self, model):
+                super().__init__()
+                self.model = model
+
+            def complete(self, **kwargs):
+                if self.n_calls >= 1:
+                    raise RateLimitError("Quota exceeded")
+                return super().complete(**kwargs)
+
+        monkeypatch.setattr("slr_studio.ai.settings.build_provider",
+                            lambda key, model=None, **o: Capped(model or "m"))
+        monkeypatch.setattr("slr_studio.ai.keys.get_key", lambda p: "k")
+        monkeypatch.setattr("slr_studio.ai.client.time.sleep", lambda s: None,
+                            raising=False)
+        data, protocol = dataset
+        out = tmp_path / "r.md"
+        work = tmp_path / "work"
+        code = _run([str(data), "--protocol", str(protocol), "--out", str(out),
+                     "--workspace", str(work)], monkeypatch)
+        printed = capsys.readouterr().out
+        assert code == 3
+        assert not out.exists()
+        assert "run the same command again" in printed.lower()
+        assert (work / "project.slr").exists() or any(work.iterdir())

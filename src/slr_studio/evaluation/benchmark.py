@@ -37,9 +37,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..ai.client import AIClient, CostEstimate
-from ..core.project import Project
+from ..core.hashing import sha256_text
+from ..core.project import PROJECT_DB_NAME, Project
 from ..core.db import utc_now
-from ..screening.engine import ScreeningEngine, ScreeningSettings
+from ..screening.engine import CATEGORIES, ScreeningEngine, ScreeningSettings
+from ..screening.stats import agreement as _agreement
 from .datasets import BenchmarkDataset
 from .metrics import ScreeningScore, score_screening
 
@@ -78,9 +80,14 @@ class BenchmarkResult:
     lost_records: list[dict[str, Any]] = field(default_factory=list)
     agreement: dict[str, Any] | None = None
     notes: list[str] = field(default_factory=list)
+    #: False when the run stopped before every record was screened (a
+    #: budget, a rate limit). An incomplete result is not a result: run the
+    #: benchmark again on the same workspace to finish it.
+    complete: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return {
+            "complete": self.complete,
             "dataset": self.dataset,
             "score": self.score.as_dict(),
             "protocol": self.protocol,
@@ -97,6 +104,38 @@ class BenchmarkResult:
             "agreement": self.agreement,
             "notes": self.notes,
         }
+
+
+def _fingerprint(dataset: BenchmarkDataset, protocol: str) -> str:
+    """What a resumed run must match: the records, their labels, the protocol."""
+    parts = [protocol.strip()]
+    parts += [f"{r.title}\x1f{r.abstract}\x1f{r.relevant}" for r in dataset.records]
+    return sha256_text("\x1e".join(parts))
+
+
+def _screener_agreement(project: Project) -> dict[str, Any] | None:
+    """Screener A against screener B over every record both judged.
+
+    Computed from the stored decisions rather than taken from the last run,
+    so a benchmark finished over several days reports agreement over all of
+    it, not over the final day's share.
+    """
+    latest: dict[tuple[int, str], str] = {}
+    for row in project.db.query(
+        "SELECT record_id, reviewer_role, decision FROM screening_decision "
+        "WHERE reviewer_role IN ('screener_a', 'screener_b') ORDER BY id"
+    ):
+        latest[(row["record_id"], row["reviewer_role"])] = row["decision"]
+    ids = sorted({rid for rid, _ in latest})
+    pairs = [
+        (latest[(rid, "screener_a")], latest[(rid, "screener_b")])
+        for rid in ids
+        if (rid, "screener_a") in latest and (rid, "screener_b") in latest
+    ]
+    if not pairs:
+        return None
+    a, b = zip(*pairs)
+    return _agreement(list(a), list(b), categories=list(CATEGORIES)).as_dict()
 
 
 def _load_records(project: Project, dataset: BenchmarkDataset) -> list[int]:
@@ -181,20 +220,47 @@ def run_benchmark(
 
     workspace = Path(workspace)
     workspace.mkdir(parents=True, exist_ok=True)
-    project = Project.create(
-        workspace, f"Benchmark: {dataset.name}", actor=actor
-    )
-    started = datetime.now(timezone.utc)
+    fingerprint = _fingerprint(dataset, protocol)
     clock = time.monotonic()
 
-    try:
-        project.update_info(
-            objectives=protocol.strip(),
-            inclusion_criteria=(inclusion_criteria or protocol).strip(),
-            searched_to=started.date().isoformat(),
+    resumed = (workspace / PROJECT_DB_NAME).exists()
+    if resumed:
+        # Carry on a run that stopped (a daily quota, a budget, a closed
+        # window). Everything already decided is kept, and every answer
+        # already bought is in the cache.
+        project = Project.open(workspace, actor=actor)
+        if project.db.get_meta("benchmark.fingerprint") != fingerprint:
+            project.close()
+            raise BenchmarkError(
+                f"The workspace {workspace} holds a benchmark of a different "
+                "dataset or protocol. Resume it with the same files, or give "
+                "this run a new workspace."
+            )
+        started = datetime.fromisoformat(
+            project.db.get_meta("benchmark.started_at") or utc_now()
         )
-        project.protocol.lock(actor=actor)
-        _load_records(project, dataset)
+        prior_seconds = float(project.db.get_meta("benchmark.seconds", "0") or 0)
+    else:
+        project = Project.create(
+            workspace, f"Benchmark: {dataset.name}", actor=actor
+        )
+        started = datetime.now(timezone.utc)
+        prior_seconds = 0.0
+
+    try:
+        if not resumed:
+            project.update_info(
+                objectives=protocol.strip(),
+                inclusion_criteria=(inclusion_criteria or protocol).strip(),
+                searched_to=started.date().isoformat(),
+            )
+            project.protocol.lock(actor=actor)
+            _load_records(project, dataset)
+            with project.db.transaction():
+                project.db.set_meta("benchmark.fingerprint", fingerprint)
+                project.db.set_meta(
+                    "benchmark.started_at", started.isoformat(timespec="seconds")
+                )
 
         client = client_factory(project)
         engine = ScreeningEngine(
@@ -204,12 +270,13 @@ def run_benchmark(
             raise BenchmarkCancelled(
                 "The cost estimate was declined. No model call was made."
             )
-        engine.waive_pilot(
-            "Benchmark run: the dataset's own human decisions are the gold "
-            "standard this run is scored against, so a separate pilot "
-            "would check the AI against the same labels twice.",
-            actor=actor,
-        )
+        if not engine.pilot_waived():
+            engine.waive_pilot(
+                "Benchmark run: the dataset's own human decisions are the gold "
+                "standard this run is scored against, so a separate pilot "
+                "would check the AI against the same labels twice.",
+                actor=actor,
+            )
         outcome = engine.run_full(actor=actor, on_progress=on_progress)
 
         # Read the decisions back in the order the records went in, so they
@@ -259,7 +326,7 @@ def run_benchmark(
                 "stopped early. They are scored as 'unclear', which is the "
                 "cautious reading; the figures below are not a complete run."
             )
-        if outcome.status != "complete":
+        if outcome.status != "finished":
             notes.append(f"Run status: {outcome.status}. {' '.join(outcome.messages)}")
 
         usage = project.db.query_one(
@@ -269,6 +336,9 @@ def run_benchmark(
             "COALESCE(SUM(cost_usd), 0) AS cost FROM ai_call"
         )
         finished = datetime.now(timezone.utc)
+        seconds = prior_seconds + (time.monotonic() - clock)
+        with project.db.transaction():
+            project.db.set_meta("benchmark.seconds", f"{seconds:.1f}")
 
         return BenchmarkResult(
             dataset=dataset.characteristics(),
@@ -278,14 +348,15 @@ def run_benchmark(
             provider=type(client.provider).__name__,
             started_at=started.isoformat(timespec="seconds"),
             finished_at=finished.isoformat(timespec="seconds"),
-            seconds=time.monotonic() - clock,
+            seconds=seconds,
             n_ai_calls=int(usage["n"] or 0),
             tokens_in=int(usage["tin"] or 0),
             tokens_out=int(usage["tout"] or 0),
             cost=float(usage["cost"] or 0.0),
             lost_records=lost,
-            agreement=outcome.agreement.as_dict() if outcome.agreement else None,
+            agreement=_screener_agreement(project),
             notes=notes,
+            complete=not undecided and outcome.status == "finished",
         )
     finally:
         project.close()

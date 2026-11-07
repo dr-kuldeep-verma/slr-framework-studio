@@ -25,7 +25,7 @@ from pydantic import BaseModel, ValidationError
 
 from ..core.db import utc_now
 from ..core.hashing import canonical_json, sha256_text
-from .base import AIError, Provider, ResponseFormatError, estimate_tokens
+from .base import AIError, Provider, RateLimitError, ResponseFormatError, estimate_tokens
 from .pricing import Rate, estimate_cost, rate_for
 from .providers import parse_json_object
 
@@ -105,7 +105,7 @@ class AIClient:
         use_cache: bool = True,
         max_retries: int = 4,
         backoff_base: float = 1.5,
-        sleep=time.sleep,
+        sleep=None,
         rate_overrides: dict[str, Rate] | None = None,
     ) -> None:
         self.project = project
@@ -120,7 +120,7 @@ class AIClient:
         self.use_cache = use_cache
         self.max_retries = max_retries
         self.backoff_base = backoff_base
-        self._sleep = sleep
+        self._sleep = sleep if sleep is not None else time.sleep
         self.rate_overrides = rate_overrides or {}
         self.spent_usd = 0.0
         self.budget_usd: float | None = None
@@ -208,7 +208,12 @@ class AIClient:
                         f"{user}\n\n---\nYour previous answer could not be used: "
                         f"{exc}\nReply with a single JSON object and nothing else."
                     )
-                self._sleep(self.backoff_base ** attempt)
+                if isinstance(exc, RateLimitError):
+                    # Per-minute limits reset on the minute, and a retry
+                    # inside the same window only spends another request.
+                    self._sleep(20.0 * attempt)
+                else:
+                    self._sleep(self.backoff_base ** attempt)
         raise last_error if last_error else AIError("The call failed for an unknown reason.")
 
     @staticmethod

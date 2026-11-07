@@ -155,15 +155,22 @@ class OpenAICompatibleProvider(Provider):
         }
         if self.json_mode:
             payload["response_format"] = {"type": "json_object"}
-        data = _post(
-            f"{self.base_url}/chat/completions",
-            {
-                "Authorization": f"Bearer {self.api_key}",
-                "content-type": "application/json",
-            },
-            payload,
-            timeout,
-        )
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "content-type": "application/json",
+        }
+        url = f"{self.base_url}/chat/completions"
+        try:
+            data = _post(url, headers, payload, timeout)
+        except ProviderError as exc:
+            # Not every endpoint that speaks this API accepts its JSON mode.
+            # The answer is parsed and validated as JSON either way, so one
+            # that refuses it is asked again without it, and not asked again.
+            if not (self.json_mode and "response_format" in str(exc)):
+                raise
+            self.json_mode = False
+            payload.pop("response_format", None)
+            data = _post(url, headers, payload, timeout)
         choices = data.get("choices") or [{}]
         text = (choices[0].get("message") or {}).get("content") or ""
         usage = data.get("usage") or {}

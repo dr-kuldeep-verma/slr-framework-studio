@@ -1145,6 +1145,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--base-url", default="", help="override the provider's endpoint"
     )
     p_bench.add_argument(
+        "--requests-per-minute",
+        type=float,
+        help="go no faster than this. For free API tiers, set it a little "
+        "under the tier's per-minute limit.",
+    )
+    p_bench.add_argument(
+        "--workspace",
+        help="keep the run in this folder. If it stops (a daily quota, a "
+        "budget), the same command with the same --workspace carries on "
+        "where it left off without paying again for anything already answered.",
+    )
+    p_bench.add_argument(
+        "--max-tokens",
+        type=int,
+        help="longest answer allowed per call (default 700). Raise it for "
+        "models that think before answering, which spend tokens doing so.",
+    )
+    p_bench.add_argument(
         "--budget",
         type=float,
         help="stop the run once it has cost this many US dollars",
@@ -1233,8 +1251,16 @@ def cmd_benchmark(args) -> int:
             print("Titles and abstracts will be sent to this provider.")
 
         def factory(project):
-            return AIClient(
-                project, provider_from_settings(settings), stage="screen"
+            provider = provider_from_settings(settings)
+            if args.requests_per_minute:
+                from .ai.throttle import ThrottledProvider
+
+                provider = ThrottledProvider(provider, args.requests_per_minute)
+            return AIClient(project, provider, stage="screen")
+
+        if args.requests_per_minute:
+            print(
+                f"Pacing: at most {args.requests_per_minute:g} requests a minute."
             )
 
         def confirm(estimate) -> bool:
@@ -1248,14 +1274,22 @@ def cmd_benchmark(args) -> int:
             reply = input("Go ahead? [y/N] ").strip().lower()
             return reply in ("y", "yes")
 
-    workspace = Path(tempfile.mkdtemp(prefix="slr-benchmark-"))
+    if args.workspace:
+        workspace = Path(args.workspace)
+        if (workspace / "project.slr").exists():
+            print(f"Resuming the run kept in {workspace}.")
+    else:
+        workspace = Path(tempfile.mkdtemp(prefix="slr-benchmark-"))
+    screening = ScreeningSettings(budget_usd=args.budget)
+    if args.max_tokens:
+        screening.max_tokens = args.max_tokens
     try:
         result = run_benchmark(
             dataset,
             protocol=protocol,
             client_factory=factory,
             workspace=workspace,
-            settings=ScreeningSettings(budget_usd=args.budget),
+            settings=screening,
             confirm=confirm,
             on_progress=lambda done, total, msg: print(
                 f"\r  {done}/{total}", end="", flush=True
@@ -1265,6 +1299,19 @@ def cmd_benchmark(args) -> int:
         print("Nothing was run.")
         return 1
     print()
+
+    if not result.complete:
+        # A partial run is not a result. Writing it out as a report invites
+        # quoting a number that describes some of the corpus as all of it.
+        print("\nThe run stopped before every record was screened:")
+        for note in result.notes:
+            print(f"  {note}")
+        print(
+            f"\nNo report was written. Run the same command again, with "
+            f"--workspace {workspace}, to carry on where it stopped "
+            "(for a daily quota, after the quota resets)."
+        )
+        return 3
 
     report = as_markdown(result)
     out = Path(args.out) if args.out else Path.cwd() / f"benchmark-{facts['name']}.md"
