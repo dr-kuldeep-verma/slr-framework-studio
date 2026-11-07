@@ -235,3 +235,66 @@ class TestTheRunner:
             assert project.info()["title"].startswith("Benchmark:")
         finally:
             project.close()
+
+
+class TestTheCurrentSynergyExport:
+    """`synergy get` (synergy-dataset 2.x) names the title/abstract label
+    `label_abstract_included`. Missing it means falling through to
+    `label_included`, the post-full-text label, and scoring a title/abstract
+    screener against decisions it could not have made."""
+
+    def test_it_picks_the_abstract_label_under_its_current_name(self, tmp_path):
+        columns = ["openalex_id", "doi", "title", "abstract",
+                   "label_included", "label_abstract_included"]
+        rows = [
+            {"openalex_id": "W1", "title": "Kept at title/abstract, dropped at full text",
+             "abstract": "x", "label_included": 0, "label_abstract_included": 1},
+            {"openalex_id": "W2", "title": "Kept at both",
+             "abstract": "y", "label_included": 1, "label_abstract_included": 1},
+            {"openalex_id": "W3", "title": "Excluded",
+             "abstract": "z", "label_included": 0, "label_abstract_included": 0},
+        ]
+        path = _write_csv(tmp_path / "synergy.csv", rows, columns=columns)
+        dataset = load_csv(path)
+        assert dataset.label_column == "label_abstract_included"
+        assert sum(r.relevant for r in dataset.records) == 2
+
+
+class TestTheCostGate:
+    """Integrity rule: a cost estimate in tokens and money is shown before
+    every bulk AI run, and nothing is spent until it is accepted."""
+
+    def _factory(self):
+        return lambda project: AIClient(
+            project, MockProvider(), stage="screen", sleep=lambda _: None
+        )
+
+    def test_the_estimate_is_offered_before_any_call(self, tiny_dataset, tmp_path):
+        seen = []
+
+        def confirm(estimate):
+            seen.append(estimate)
+            return True
+
+        run_benchmark(
+            tiny_dataset, protocol=PROTOCOL, client_factory=self._factory(),
+            workspace=tmp_path / "b", confirm=confirm,
+        )
+        assert len(seen) == 1
+        estimate = seen[0]
+        assert estimate.n_calls == 12  # two screeners x six records
+        assert estimate.total_tokens > 0
+
+    def test_declining_spends_nothing(self, tiny_dataset, tmp_path):
+        from slr_studio.evaluation.benchmark import BenchmarkCancelled
+
+        provider = MockProvider()
+        factory = lambda project: AIClient(  # noqa: E731
+            project, provider, stage="screen", sleep=lambda _: None
+        )
+        with pytest.raises(BenchmarkCancelled):
+            run_benchmark(
+                tiny_dataset, protocol=PROTOCOL, client_factory=factory,
+                workspace=tmp_path / "b", confirm=lambda estimate: False,
+            )
+        assert getattr(provider, "calls", []) == []

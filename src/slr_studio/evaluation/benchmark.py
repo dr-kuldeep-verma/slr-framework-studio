@@ -36,20 +36,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from ..ai.client import AIClient
+from ..ai.client import AIClient, CostEstimate
 from ..core.project import Project
 from ..core.db import utc_now
 from ..screening.engine import ScreeningEngine, ScreeningSettings
 from .datasets import BenchmarkDataset
 from .metrics import ScreeningScore, score_screening
 
-__all__ = ["BenchmarkResult", "run_benchmark", "BenchmarkError"]
+__all__ = ["BenchmarkResult", "run_benchmark", "BenchmarkError", "BenchmarkCancelled"]
 
 ProgressFn = Callable[[int, int, str], None]
 
 
 class BenchmarkError(RuntimeError):
     pass
+
+
+class BenchmarkCancelled(BenchmarkError):
+    """The cost estimate was shown and declined. Nothing was spent."""
 
 
 @dataclass
@@ -148,6 +152,7 @@ def run_benchmark(
     settings: ScreeningSettings | None = None,
     on_progress: ProgressFn | None = None,
     actor: str = "human:benchmark",
+    confirm: Callable[[CostEstimate], bool] | None = None,
 ) -> BenchmarkResult:
     """Screen *dataset* and score the result against its labels.
 
@@ -158,6 +163,11 @@ def run_benchmark(
     caller chooses the provider. Passing a mock provider gives a run that
     costs nothing and tests the harness; passing a real one gives a result
     worth reporting.
+
+    *confirm*, when given, is shown the estimate for the whole run in
+    tokens and money before the first call, and the run goes ahead only if
+    it returns true. Otherwise :class:`BenchmarkCancelled` is raised and
+    nothing has been spent.
     """
     if not protocol.strip():
         raise BenchmarkError(
@@ -190,6 +200,10 @@ def run_benchmark(
         engine = ScreeningEngine(
             project, client, settings or ScreeningSettings()
         )
+        if confirm is not None and not confirm(engine.estimate_full_run()):
+            raise BenchmarkCancelled(
+                "The cost estimate was declined. No model call was made."
+            )
         engine.waive_pilot(
             "Benchmark run: the dataset's own human decisions are the gold "
             "standard this run is scored against, so a separate pilot "

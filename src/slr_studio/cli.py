@@ -1130,6 +1130,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--reference", default="", help="DOI or URL of the review it came from"
     )
     p_bench.add_argument(
+        "--provider",
+        default="anthropic",
+        help="anthropic (default), openai_compatible or ollama. The API key "
+        "is the one saved in the application under Tools > Model settings.",
+    )
+    p_bench.add_argument(
+        "--model",
+        default="",
+        help="the model to screen with; defaults to the provider's default. "
+        "Name it explicitly for anything you will report.",
+    )
+    p_bench.add_argument(
+        "--base-url", default="", help="override the provider's endpoint"
+    )
+    p_bench.add_argument(
+        "--budget",
+        type=float,
+        help="stop the run once it has cost this many US dollars",
+    )
+    p_bench.add_argument(
         "--mock",
         action="store_true",
         help="run against the mock model: costs nothing, proves nothing "
@@ -1149,8 +1169,12 @@ def cmd_benchmark(args) -> int:
 
     from .ai import AIClient, MockProvider
     from .ai.settings import ModelSettings, provider_from_settings
-    from .evaluation.benchmark import run_benchmark
+    from .evaluation import benchmark as bench
+    from .evaluation.benchmark import BenchmarkCancelled
     from .evaluation.datasets import load_csv, stratified_sample
+    from .screening.engine import ScreeningSettings
+
+    run_benchmark = bench.run_benchmark
     from .evaluation.report import as_markdown
 
     protocol = Path(args.protocol).read_text(encoding="utf-8").strip()
@@ -1184,28 +1208,62 @@ def cmd_benchmark(args) -> int:
         factory = lambda project: AIClient(  # noqa: E731
             project, MockProvider(), stage="screen", sleep=lambda _: None
         )
+        confirm = None
     else:
-        settings = ModelSettings.load()
-        print(f"Model: {settings.model}")
-        if not args.yes:
-            reply = input("Go ahead? [y/N] ").strip().lower()
-            if reply not in ("y", "yes"):
-                print("Nothing was run.")
-                return 1
-        factory = lambda project: AIClient(  # noqa: E731
-            project, provider_from_settings(settings), stage="screen"
+        from .ai.keys import has_key
+        from .ai.providers import PROVIDERS
+
+        spec = PROVIDERS.get(args.provider)
+        if spec is None:
+            raise ValueError(
+                f"Unknown provider {args.provider!r}. "
+                f"Choose one of: {', '.join(sorted(PROVIDERS))}."
+            )
+        if spec.needs_key and not has_key(args.provider):
+            raise ValueError(
+                f"No API key is saved for {spec.label}. Open the application, "
+                "choose Tools > Model settings, enter the key there (it is kept "
+                "in the Windows Credential Manager), then run this again."
+            )
+        settings = ModelSettings(
+            provider=args.provider, model=args.model, base_url=args.base_url
         )
+        print(f"Model: {settings.resolved_model()} ({spec.label})")
+        if spec.sends_data_off_device:
+            print("Titles and abstracts will be sent to this provider.")
+
+        def factory(project):
+            return AIClient(
+                project, provider_from_settings(settings), stage="screen"
+            )
+
+        def confirm(estimate) -> bool:
+            print(f"\nEstimate: {estimate.describe()}")
+            for note in estimate.notes:
+                print(f"  {note}")
+            if args.budget is not None:
+                print(f"  The run stops if it reaches US${args.budget:,.2f}.")
+            if args.yes:
+                return True
+            reply = input("Go ahead? [y/N] ").strip().lower()
+            return reply in ("y", "yes")
 
     workspace = Path(tempfile.mkdtemp(prefix="slr-benchmark-"))
-    result = run_benchmark(
-        dataset,
-        protocol=protocol,
-        client_factory=factory,
-        workspace=workspace,
-        on_progress=lambda done, total, msg: print(
-            f"\r  {done}/{total}", end="", flush=True
-        ),
-    )
+    try:
+        result = run_benchmark(
+            dataset,
+            protocol=protocol,
+            client_factory=factory,
+            workspace=workspace,
+            settings=ScreeningSettings(budget_usd=args.budget),
+            confirm=confirm,
+            on_progress=lambda done, total, msg: print(
+                f"\r  {done}/{total}", end="", flush=True
+            ),
+        )
+    except BenchmarkCancelled:
+        print("Nothing was run.")
+        return 1
     print()
 
     report = as_markdown(result)

@@ -18,24 +18,48 @@ slr benchmark data/Appenzeller-Herzog_2020.csv \
     --protocol protocols/wilson.txt \
     --sample-irrelevant 400 --mock
 
-# 4. Then for real, with whichever model you have configured:
+# 4. Then for real. The API key is the one saved in the application under
+#    Tools > Model settings; the command shows the estimated tokens and cost
+#    and asks before it spends anything.
 slr benchmark data/Appenzeller-Herzog_2020.csv \
     --protocol protocols/wilson.txt \
     --sample-irrelevant 400 \
+    --provider anthropic --model claude-sonnet-5-5 \
+    --budget 20 \
     --licence "CC-BY 4.0" \
     --reference "https://doi.org/10.1111/liv.14179" \
     --out results/wilson.md
 ```
 
-You get `wilson.md` to read and `wilson.json` to put in a table.
+You get `wilson.md` to read and `wilson.json` to put in a table. Name the
+model with `--model` for any run you will report: the default changes as
+providers release new models, and a result is a property of one model.
 
 ## Where the datasets come from
 
 The [SYNERGY collection](https://github.com/asreview/synergy-dataset)
-publishes one CSV per systematic review: every record the search returned,
-and the decisions the human screeners made on it. They are CC-BY and each
-cites the review it came from. Other collections in the same shape work
-too — the CLEF eHealth TAR sets, Cohen's drug-review datasets.
+publishes 26 systematic reviews: every record the search returned, and the
+decisions the human screeners made on it. Its own tool builds the CSVs:
+
+```bash
+pip install synergy-dataset
+synergy list                       # the dataset names
+set SYNERGY_SET=synergy            # Windows cmd; `export` elsewhere
+synergy get -d Appenzeller-Herzog_2020 -o data
+```
+
+`SYNERGY_SET=synergy` selects the classic collection (DOI
+10.34894/HE6NAQ), which keeps every record the search found, including
+those with no abstract. Without it the tool builds SYNERGY+, which keeps
+only open-access records with an abstract: a smaller, easier corpus, and a
+different one, so say which you used. The tool asks you to acknowledge that
+abstracts are rebuilt from an index and may not be republished as text;
+answer yes, and do not commit the CSVs to a public repository.
+
+The loader reads the title/abstract label under either name SYNERGY has
+used for it (`label_abstract_included` now, `label_abstract_screening`
+before). Other collections in the same shape work too: the CLEF eHealth TAR
+sets, Cohen's drug-review datasets.
 
 ## Three things that decide whether a benchmark is fair
 

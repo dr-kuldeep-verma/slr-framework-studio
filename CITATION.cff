@@ -20,6 +20,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.24033384
     description: Version 0.1.0
+  - type: doi
+    value: 10.5281/zenodo.24033962
+    description: Version 0.1.1
 abstract: >-
   A desktop application that takes a systematic literature review from
   database exports to an evidence-graded theoretical framework, following
@@ -34,5 +37,5 @@ keywords:
   - evidence synthesis
   - research software
 license: AGPL-3.0-or-later
-version: 0.1.1
+version: 0.1.2
 date-released: 2026-11-07

@@ -48,7 +48,18 @@ SYNERGY_INDEX_URL = (
 
 #: Preferred first. A title/abstract screener is judged on the decision
 #: made from the title and abstract.
-_LABEL_COLUMNS = ("label_abstract_screening", "label_included", "included", "label")
+# Title/abstract labels first, under every name SYNERGY has used for them:
+# `label_abstract_screening` in the older CSVs, `label_abstract_included` in
+# what `synergy get` writes now. `label_included` is the post-full-text label
+# and is the fallback only, because scoring a title/abstract screener against
+# it counts every correct "include on the abstract" as a false positive.
+_LABEL_COLUMNS = (
+    "label_abstract_screening",
+    "label_abstract_included",
+    "label_included",
+    "included",
+    "label",
+)
 
 _TITLE_COLUMNS = ("title", "primary_title", "Title")
 _ABSTRACT_COLUMNS = ("abstract", "Abstract", "notes_abstract")

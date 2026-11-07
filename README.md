@@ -230,7 +230,7 @@ pyinstaller packaging\slr_studio.spec --noconfirm
 iscc packaging\installer.iss
 ```
 
-The result is `dist\installer\SLRFrameworkStudio-0.1.1-setup.exe`, a per-user
+The result is `dist\installer\SLRFrameworkStudio-0.1.2-setup.exe`, a per-user
 install that needs no administrator rights. Put a Windows Tesseract build in
 `packaging\vendor\tesseract` before building so OCR is bundled.
 
