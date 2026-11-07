@@ -1,0 +1,11 @@
+Review: Bayesian PTSD-Trajectory Analysis with Informed Priors Based on a Systematic Literature Search and Expert Elicitation (van de Schoot et al., Multivariate Behavioral Research, 2018). Aim of the search (Appendix A, verbatim): "The search for articles using LGMM to study the development of PTSD focused on four major databases: Pubmed, Embase, PsychInfo, and Scopus." (LGMM: latent growth mixture modeling.)
+
+Study selection (Appendix A, verbatim):
+
+Following the initial identification of relevant articles, exact duplicates were excluded. After that, there were two rounds of screening for eligibility. In the first round, eligibility was decided by investigating the title and abstract of the article by one author. All relevant papers were screened for the actual application of one of the cluster techniques described in Table A1 within the context of trauma. If there was any doubt, the study was included for the second round. Note that in this stage, we were over-inclusive and during title screening, obviously irrelevant papers (N = 5,822) were removed, for example cross-sectional studies, neurobiological studies and studies from other fields such as studies examining medical procedures after physical trauma.
+
+In the second round, the full-text articles were independently read and screened by RvdS and MS for the following inclusion criteria: (a) longitudinal studies with at least three measurement waves measuring PTSD, (b) studies that measured PTSD on a continuous scale via an interview or questionnaire, (c) and studies that used a clustering method (LGMM, LCGA, hierarchical cluster analysis), (d) traumatic stress symptoms following events that appeared to fulfill DSM-IV criterion A1 for PTSD or acute stress disorder.
+
+Table A1, search terms (verbatim):
+Topic terms: Traumatic stress, stress disorder, posttraumatic stress, posttraumatic stress, PTSD
+Analysis method terms: Trajectories, latent growth, latent factors, cluster, cluster analysis, latent class analysis, latent growth mixture modeling, mixed linear models, latent profile, mixture, typologies, profile, discriminant analysis

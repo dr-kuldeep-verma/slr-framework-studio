@@ -484,7 +484,7 @@ interval, the reviewer burden, and — by name — every relevant study the
 screener threw away.
 
 ```bash
-slr benchmark data/Appenzeller-Herzog_2020.csv \
+slr benchmark data/Appenzeller-Herzog_2019.csv \
     --protocol protocols/wilson.txt --sample-irrelevant 400 --mock
 ```
 

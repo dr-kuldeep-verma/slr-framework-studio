@@ -55,7 +55,11 @@ def _post(url: str, headers: dict[str, str], payload: dict[str, Any], timeout: f
     if response.status_code == 429:
         raise RateLimitError("Rate limited by the provider.")
     if response.status_code >= 500:
-        raise ProviderError(f"The provider returned {response.status_code}.")
+        detail = (response.text or "").strip()[:300]
+        raise ProviderError(
+            f"The provider returned {response.status_code}"
+            + (f": {detail}" if detail else ".")
+        )
     if response.status_code >= 400:
         detail = response.text[:300]
         error = ProviderError(f"The provider rejected the request: {detail}")
@@ -65,6 +69,15 @@ def _post(url: str, headers: dict[str, str], payload: dict[str, Any], timeout: f
         return response.json()
     except ValueError as exc:
         raise ProviderError("The provider returned a response that was not JSON.") from exc
+
+
+def _refuses_temperature(exc: ProviderError, payload: dict[str, Any]) -> bool:
+    """A refusal of the temperature setting itself, not of anything else."""
+    return (
+        "temperature" in payload
+        and getattr(exc, "retryable", True) is False
+        and "temperature" in str(exc).lower()
+    )
 
 
 class AnthropicProvider(Provider):
@@ -86,22 +99,29 @@ class AnthropicProvider(Provider):
                 "No Anthropic API key is stored. Add one under "
                 "Tools → Model settings, or set ANTHROPIC_API_KEY."
             )
-        data = _post(
-            f"{self.base_url}/v1/messages",
-            {
-                "x-api-key": self.api_key,
-                "anthropic-version": ANTHROPIC_VERSION,
-                "content-type": "application/json",
-            },
-            {
-                "model": self.model,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "system": system,
-                "messages": [{"role": "user", "content": user}],
-            },
-            timeout,
-        )
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        if self.sends_temperature:
+            payload["temperature"] = temperature
+        try:
+            data = _post(f"{self.base_url}/v1/messages", headers, payload, timeout)
+        except ProviderError as exc:
+            if not _refuses_temperature(exc, payload):
+                raise
+            # Newer models choose their own temperature and refuse one. Ask
+            # again without it, once, and let the log say none was sent.
+            self.sends_temperature = False
+            payload.pop("temperature", None)
+            data = _post(f"{self.base_url}/v1/messages", headers, payload, timeout)
         blocks = data.get("content") or []
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
         usage = data.get("usage") or {}
@@ -158,10 +178,11 @@ class OpenAICompatibleProvider(Provider):
             )
         payload: dict[str, Any] = {
             "model": self.model,
-            "temperature": temperature,
             "max_tokens": max_tokens,
             "messages": self._messages(system, user),
         }
+        if self.sends_temperature:
+            payload["temperature"] = temperature
         if self.json_mode:
             payload["response_format"] = {"type": "json_object"}
         headers = {
@@ -174,13 +195,16 @@ class OpenAICompatibleProvider(Provider):
         # mode (the answer is parsed and validated as JSON either way), and a
         # separate system message (its words are sent unchanged, ahead of the
         # record). Any other refusal is raised as it came.
-        for _ in range(3):
+        for _ in range(4):
             try:
                 data = _post(url, headers, payload, timeout)
                 break
             except ProviderError as exc:
                 message = str(exc)
-                if self.json_mode and "response_format" in message:
+                if _refuses_temperature(exc, payload):
+                    self.sends_temperature = False
+                    payload.pop("temperature", None)
+                elif self.json_mode and "response_format" in message:
                     self.json_mode = False
                     payload.pop("response_format", None)
                 elif not self.fold_system and (

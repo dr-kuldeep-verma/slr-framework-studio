@@ -52,3 +52,6 @@ packaging/vendor/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Download cache written by the synergy-dataset tool
+/synergy_cache.sqlite

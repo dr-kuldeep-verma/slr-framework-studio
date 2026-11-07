@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 __all__ = [
+    "TEMPERATURE_NOT_SENT",
     "Provider",
     "LLMResponse",
     "Usage",
@@ -67,6 +68,12 @@ class LLMResponse:
     stop_reason: str = ""
 
 
+#: Stored in `ai_call.temperature` when no temperature was sent, because the
+#: model refuses one and applies its own. Recording 0 there would be a false
+#: statement in the audit trail; the exported log spells this value out.
+TEMPERATURE_NOT_SENT = -1.0
+
+
 class Provider(ABC):
     """One language-model backend.
 
@@ -79,6 +86,9 @@ class Provider(ABC):
     name: str = ""
     #: Whether the backend sends data off the computer. Shown in the interface.
     sends_data_off_device: bool = True
+    #: False once the backend has refused a temperature setting. Newer models
+    #: do: they choose their own, and the log then records that none was sent.
+    sends_temperature: bool = True
 
     def __init__(self, model: str, **options: Any) -> None:
         self.model = model

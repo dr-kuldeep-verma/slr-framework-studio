@@ -195,7 +195,7 @@ class TestTheRunner:
         """A number nobody can trace to a model and a protocol is not evidence."""
         result = self._run(tiny_dataset, tmp_path)
         assert result.protocol == PROTOCOL
-        assert result.provider == "MockProvider"
+        assert result.provider == "mock"
         assert result.dataset["label_column"] == "label_abstract_screening"
         assert result.started_at and result.finished_at
         assert "licence" in result.dataset
@@ -298,3 +298,33 @@ class TestTheCostGate:
                 workspace=tmp_path / "b", confirm=lambda estimate: False,
             )
         assert provider.n_calls == 0
+
+
+class TestClassicSynergyAbstracts:
+    """`synergy get` on the classic collection leaves `abstract` empty and
+    puts the text in `abstract_original` when asked for it. Reading the
+    empty column would screen sixteen thousand records on their titles."""
+
+    def test_the_column_that_holds_the_abstracts_is_the_one_read(self, tmp_path):
+        columns = ["openalex_id", "title", "abstract", "label_included",
+                   "abstract_original"]
+        rows = [
+            {"openalex_id": "W1", "title": "A", "abstract": "",
+             "abstract_original": "Residents took part.", "label_included": 1},
+            {"openalex_id": "W2", "title": "B", "abstract": "",
+             "abstract_original": "Soil chemistry.", "label_included": 0},
+            {"openalex_id": "W3", "title": "C", "abstract": "",
+             "abstract_original": "", "label_included": 0},
+        ]
+        dataset = load_csv(_write_csv(tmp_path / "c.csv", rows, columns=columns))
+        assert [r.abstract for r in dataset.records] == [
+            "Residents took part.", "Soil chemistry.", ""
+        ]
+        assert dataset.characteristics()["n_without_abstract"] == 1
+
+    def test_an_ordinary_abstract_column_still_wins_when_it_has_text(self, tmp_path):
+        columns = ["title", "abstract", "abstract_original", "label_included"]
+        rows = [{"title": "A", "abstract": "cleaned", "abstract_original": "raw",
+                 "label_included": 1}]
+        dataset = load_csv(_write_csv(tmp_path / "c.csv", rows, columns=columns))
+        assert dataset.records[0].abstract == "cleaned"

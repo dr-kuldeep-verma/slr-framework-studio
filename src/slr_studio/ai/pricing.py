@@ -30,6 +30,14 @@ class Rate:
 
 #: Matched by prefix, longest first, so a family rate covers its versions.
 DEFAULT_RATES: dict[str, Rate] = {
+    # Current models, as published in November 2026. Claude Haiku 5.5's rate
+    # is for prompts up to 100,000 tokens; above that every rate is five
+    # times higher. A screening prompt is about two thousand.
+    "claude-haiku-5-5": Rate(0.10, 0.50),
+    "claude-sonnet-5-5": Rate(2.0, 10.0),
+    "gemini-3.1-flash-lite": Rate(0.25, 1.50),
+    "gemini-3.5-flash-lite": Rate(0.54, 4.50),
+    # Family rates for earlier versions.
     "claude-opus": Rate(15.0, 75.0),
     "claude-sonnet": Rate(3.0, 15.0),
     "claude-haiku": Rate(0.80, 4.0),

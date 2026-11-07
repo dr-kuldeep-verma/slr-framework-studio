@@ -1,0 +1,110 @@
+{
+  "complete": true,
+  "dataset": {
+    "name": "van_de_Schoot_2018 (sampled)",
+    "n_records": 438,
+    "n_relevant": 38,
+    "prevalence": 0.08676,
+    "n_without_abstract": 3,
+    "share_without_abstract": 0.0068,
+    "label_column": "label_included",
+    "source": "C:\\benchmark\\final\\van_de_Schoot_2018.csv",
+    "licence": "",
+    "reference": "https://doi.org/10.1080/00273171.2017.1412293",
+    "notes": [
+      "'label_included' is the post-full-text decision. A record correctly kept at abstract screening and later excluded on full text counts here as a false positive, so specificity is understated against this label.",
+      "6 row(s) had no title and were dropped.",
+      "71 of 4538 records (2%) have no abstract. Those are screened on their title alone, which bounds what any screener can do with them.",
+      "Stratified sample: all 38 relevant record(s) kept, 400 of 4500 irrelevant sampled with seed 20260101. Recall is therefore computed over every relevant record in the dataset; specificity and burden are estimates over the sample, and their intervals reflect that. Prevalence in the sample is not the prevalence of the corpus."
+    ]
+  },
+  "score": {
+    "n_records": 438,
+    "n_relevant": 38,
+    "n_to_human": 110,
+    "n_lost": 1,
+    "strict_recall": 0.42105263157894735,
+    "workflow_recall": 0.9736842105263158,
+    "specificity": 0.8175,
+    "precision": 0.33636363636363636,
+    "burden": 0.2511415525114155,
+    "number_needed_to_read": 2.972972972972973,
+    "strict_recall_interval": [
+      0.27852501157758713,
+      0.5780765465632945
+    ],
+    "workflow_recall_interval": [
+      0.8650512388404787,
+      0.9953394123142312
+    ],
+    "specificity_interval": [
+      0.7766870404912806,
+      0.8522726526064411
+    ],
+    "counts": {
+      "relevant_include": 16,
+      "relevant_exclude": 1,
+      "relevant_unclear": 21,
+      "irrelevant_include": 0,
+      "irrelevant_exclude": 327,
+      "irrelevant_unclear": 73
+    }
+  },
+  "protocol": "Review: Bayesian PTSD-Trajectory Analysis with Informed Priors Based on a Systematic Literature Search and Expert Elicitation (van de Schoot et al., Multivariate Behavioral Research, 2018). Aim of the search (Appendix A, verbatim): \"The search for articles using LGMM to study the development of PTSD focused on four major databases: Pubmed, Embase, PsychInfo, and Scopus.\" (LGMM: latent growth mixture modeling.)\n\nStudy selection (Appendix A, verbatim):\n\nFollowing the initial identification of relevant articles, exact duplicates were excluded. After that, there were two rounds of screening for eligibility. In the first round, eligibility was decided by investigating the title and abstract of the article by one author. All relevant papers were screened for the actual application of one of the cluster techniques described in Table A1 within the context of trauma. If there was any doubt, the study was included for the second round. Note that in this stage, we were over-inclusive and during title screening, obviously irrelevant papers (N = 5,822) were removed, for example cross-sectional studies, neurobiological studies and studies from other fields such as studies examining medical procedures after physical trauma.\n\nIn the second round, the full-text articles were independently read and screened by RvdS and MS for the following inclusion criteria: (a) longitudinal studies with at least three measurement waves measuring PTSD, (b) studies that measured PTSD on a continuous scale via an interview or questionnaire, (c) and studies that used a clustering method (LGMM, LCGA, hierarchical cluster analysis), (d) traumatic stress symptoms following events that appeared to fulfill DSM-IV criterion A1 for PTSD or acute stress disorder.\n\nTable A1, search terms (verbatim):\nTopic terms: Traumatic stress, stress disorder, posttraumatic stress, posttraumatic stress, PTSD\nAnalysis method terms: Trajectories, latent growth, latent factors, cluster, cluster analysis, latent class analysis, latent growth mixture modeling, mixed linear models, latent profile, mixture, typologies, profile, discriminant analysis",
+  "model": "claude-haiku-5-5",
+  "provider": "ThrottledProvider",
+  "started_at": "2026-11-07T19:05:33+00:00",
+  "finished_at": "2026-11-07T20:16:46+00:00",
+  "seconds": 3710.1,
+  "n_ai_calls": 883,
+  "tokens_in": 3107066,
+  "tokens_out": 670115,
+  "cost": 0.6458,
+  "lost_records": [
+    {
+      "title": "Resource loss, resource gain, and psychological resilience and dysfunction following cancer diagnosis: A growth mixture modeling approach.",
+      "year": null,
+      "doi": "https://doi.org/10.1037/a0020809",
+      "had_abstract": true,
+      "source_row": 955
+    }
+  ],
+  "agreement": {
+    "n": 438,
+    "n_agree": 366,
+    "percent_agreement": 0.8356,
+    "kappa": 0.5154,
+    "pabak": 0.7534,
+    "p_observed": 0.8356,
+    "p_expected": 0.6608,
+    "categories": [
+      "include",
+      "exclude",
+      "unclear"
+    ],
+    "matrix": {
+      "include": {
+        "include": 16,
+        "exclude": 6,
+        "unclear": 22
+      },
+      "exclude": {
+        "include": 0,
+        "exclude": 326,
+        "unclear": 6
+      },
+      "unclear": {
+        "include": 0,
+        "exclude": 38,
+        "unclear": 24
+      }
+    },
+    "note": ""
+  },
+  "notes": [
+    "'label_included' is the post-full-text decision. A record correctly kept at abstract screening and later excluded on full text counts here as a false positive, so specificity is understated against this label.",
+    "6 row(s) had no title and were dropped.",
+    "71 of 4538 records (2%) have no abstract. Those are screened on their title alone, which bounds what any screener can do with them.",
+    "Stratified sample: all 38 relevant record(s) kept, 400 of 4500 irrelevant sampled with seed 20260101. Recall is therefore computed over every relevant record in the dataset; specificity and burden are estimates over the sample, and their intervals reflect that. Prevalence in the sample is not the prevalence of the corpus."
+  ]
+}

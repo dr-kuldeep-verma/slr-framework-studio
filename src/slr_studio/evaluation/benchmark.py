@@ -263,6 +263,18 @@ def run_benchmark(
                 )
 
         client = client_factory(project)
+        model = getattr(client.provider, "model", "unknown")
+        recorded = project.db.get_meta("benchmark.model")
+        if recorded is None:
+            with project.db.transaction():
+                project.db.set_meta("benchmark.model", model)
+        elif recorded != model:
+            raise BenchmarkError(
+                f"This run was started with {recorded!r} and cannot be "
+                f"resumed with {model!r}: its score would mix two models' "
+                "decisions and report them under one name. Give the new model "
+                "its own --workspace."
+            )
         engine = ScreeningEngine(
             project, client, settings or ScreeningSettings()
         )
@@ -345,7 +357,7 @@ def run_benchmark(
             score=score,
             protocol=protocol.strip(),
             model=getattr(client.provider, "model", "unknown"),
-            provider=type(client.provider).__name__,
+            provider=getattr(client.provider, "name", "") or type(client.provider).__name__,
             started_at=started.isoformat(timespec="seconds"),
             finished_at=finished.isoformat(timespec="seconds"),
             seconds=seconds,

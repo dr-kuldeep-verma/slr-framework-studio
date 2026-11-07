@@ -1315,6 +1315,7 @@ def cmd_benchmark(args) -> int:
 
     report = as_markdown(result)
     out = Path(args.out) if args.out else Path.cwd() / f"benchmark-{facts['name']}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     out.with_suffix(".json").write_text(
         json.dumps(result.as_dict(), indent=2), encoding="utf-8"

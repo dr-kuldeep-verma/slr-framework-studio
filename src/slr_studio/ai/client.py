@@ -25,7 +25,15 @@ from pydantic import BaseModel, ValidationError
 
 from ..core.db import utc_now
 from ..core.hashing import canonical_json, sha256_text
-from .base import AIError, Provider, RateLimitError, ResponseFormatError, estimate_tokens
+from .base import (
+    TEMPERATURE_NOT_SENT,
+    AIError,
+    Provider,
+    ProviderError,
+    RateLimitError,
+    ResponseFormatError,
+    estimate_tokens,
+)
 from .pricing import Rate, estimate_cost, rate_for
 from .providers import parse_json_object
 
@@ -195,7 +203,16 @@ class AIClient:
                     max_tokens=max_tokens,
                     temperature=self.temperature,
                 )
-                value = self._validate(response.text, schema)
+                try:
+                    value = self._validate(response.text, schema)
+                except ResponseFormatError as exc:
+                    if response.stop_reason in ("max_tokens", "length"):
+                        raise ResponseFormatError(
+                            f"The answer was cut off at the {max_tokens}-token "
+                            "limit before it was complete. Raise the limit "
+                            "(--max-tokens) if this keeps happening."
+                        ) from exc
+                    raise
                 return response, value, attempt
             except AIError as exc:
                 last_error = exc
@@ -204,14 +221,28 @@ class AIClient:
                 if isinstance(exc, ResponseFormatError):
                     # Say what was wrong rather than repeating the same ask and
                     # hoping. The original prompt is never discarded.
-                    prompt = (
-                        f"{user}\n\n---\nYour previous answer could not be used: "
-                        f"{exc}\nReply with a single JSON object and nothing else."
-                    )
+                    if "cut off" in str(exc):
+                        prompt = (
+                            f"{user}\n\n---\nYour previous answer was cut off "
+                            "at the length limit before the JSON was complete. "
+                            "Reply with a single, shorter JSON object: keep the "
+                            "reason to one or two sentences and the quote brief."
+                        )
+                    else:
+                        prompt = (
+                            f"{user}\n\n---\nYour previous answer could not be "
+                            f"used: {exc}\nReply with a single JSON object and "
+                            "nothing else."
+                        )
                 if isinstance(exc, RateLimitError):
                     # Per-minute limits reset on the minute, and a retry
                     # inside the same window only spends another request.
                     self._sleep(20.0 * attempt)
+                elif isinstance(exc, ProviderError):
+                    # The provider's own failure (a 5xx, a timeout). Usually
+                    # brief, and a server in trouble is not helped by being
+                    # asked again at once.
+                    self._sleep(15.0 * attempt)
                 else:
                     self._sleep(self.backoff_base ** attempt)
         raise last_error if last_error else AIError("The call failed for an unknown reason.")
@@ -335,7 +366,11 @@ class AIClient:
                 "provider": self.provider.name,
                 "model": model,
                 "model_version": model,
-                "temperature": self.temperature,
+                "temperature": (
+                    self.temperature
+                    if getattr(self.provider, "sends_temperature", True)
+                    else TEMPERATURE_NOT_SENT
+                ),
                 "prompt_hash": sha256_text(system),
                 "input_hash": sha256_text(user),
                 "output": output,

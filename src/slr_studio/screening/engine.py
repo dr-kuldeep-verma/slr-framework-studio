@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Sequence
 
-from ..ai.base import RateLimitError
+from ..ai.base import ProviderError, RateLimitError
 from ..ai.client import AIClient, BudgetExceeded, CostEstimate
 from ..core.db import utc_now
 from ..core.hashing import sha256_text
@@ -590,6 +590,17 @@ class ScreeningEngine:
                     f"The provider's rate limit was reached ({exc}) after "
                     f"{outcome.n_done} of {len(records)} records. Nothing already "
                     "decided will be asked again when the run is resumed."
+                )
+                break
+            except ProviderError as exc:
+                if not exc.retryable:
+                    raise  # a rejected key or request: waiting will not help
+                outcome.status = "paused"
+                outcome.messages.append(
+                    f"The provider kept failing ({exc}) after {outcome.n_done} "
+                    f"of {len(records)} records, and retrying for a while did "
+                    "not help. Nothing already decided will be asked again "
+                    "when the run is resumed."
                 )
                 break
 

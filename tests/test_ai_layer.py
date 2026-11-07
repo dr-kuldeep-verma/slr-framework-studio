@@ -180,7 +180,7 @@ class TestLogging:
 class TestCost:
     def test_a_known_model_prices_its_tokens(self):
         cost, known = estimate_cost("claude-sonnet-5-5", 1_000_000, 0)
-        assert known is True and cost == pytest.approx(DEFAULT_RATES["claude-sonnet"].input_per_million)
+        assert known is True and cost == pytest.approx(DEFAULT_RATES["claude-sonnet-5-5"].input_per_million)
 
     def test_an_unknown_model_says_so_rather_than_claiming_zero(self):
         cost, known = estimate_cost("some-new-model", 1_000_000, 1_000_000)
@@ -271,3 +271,14 @@ class TestSettings:
         save_settings(project, ModelSettings(provider="anthropic", model="m"))
         rows = project.db.query("SELECT key, value FROM meta")
         assert not any("key" in str(r["value"]).casefold() for r in rows)
+
+
+def test_current_small_models_are_priced_at_their_own_rate_not_the_familys():
+    """Haiku 5.5 costs an eighth of the old Haiku family rate. Pricing it at
+    the family rate would make every estimate, and every budget stop, wrong."""
+    from slr_studio.ai.pricing import rate_for
+
+    rate, known = rate_for("claude-haiku-5-5")
+    assert known and (rate.input_per_million, rate.output_per_million) == (0.10, 0.50)
+    rate, known = rate_for("claude-haiku-4-5")
+    assert known and rate.input_per_million == 0.80

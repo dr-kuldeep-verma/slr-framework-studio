@@ -62,7 +62,9 @@ _LABEL_COLUMNS = (
 )
 
 _TITLE_COLUMNS = ("title", "primary_title", "Title")
-_ABSTRACT_COLUMNS = ("abstract", "Abstract", "notes_abstract")
+# `abstract_original` is where `synergy get -v abstract_original` puts the
+# text for the classic collection, whose `abstract` column it leaves empty.
+_ABSTRACT_COLUMNS = ("abstract", "Abstract", "notes_abstract", "abstract_original")
 
 
 class DatasetError(RuntimeError):
@@ -184,7 +186,15 @@ def load_csv(
         raise DatasetError(f"{path.name} has no column {chosen!r}")
 
     title_col = _first_present(header, _TITLE_COLUMNS)
-    abstract_col = _first_present(header, _ABSTRACT_COLUMNS)
+    # Of the abstract columns present, read the one that holds the most
+    # text: an export can carry an empty column beside the full one, and
+    # reading the empty one would screen every record on its title alone.
+    present = [c for c in _ABSTRACT_COLUMNS if c in header]
+    abstract_col = max(
+        present,
+        key=lambda c: sum(1 for row in rows if (row.get(c) or "").strip()),
+        default=None,
+    )
     if title_col is None:
         raise DatasetError(f"{path.name} has no title column")
 

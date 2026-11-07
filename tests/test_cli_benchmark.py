@@ -173,3 +173,12 @@ class TestFreeTierOptions:
         assert not out.exists()
         assert "run the same command again" in printed.lower()
         assert (work / "project.slr").exists() or any(work.iterdir())
+
+
+def test_the_report_folder_is_created_if_missing(dataset, tmp_path, fake_network,
+                                                 monkeypatch):
+    data, protocol = dataset
+    out = tmp_path / "not" / "yet" / "r.md"
+    assert _run([str(data), "--protocol", str(protocol), "--out", str(out)],
+                monkeypatch) == 0
+    assert out.exists() and out.with_suffix(".json").exists()

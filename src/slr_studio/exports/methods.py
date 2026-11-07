@@ -502,7 +502,7 @@ def write_audit_log(project, path: str | Path) -> Path:
         calls.append(
             [
                 row["id"], row["stage"], row["task"], row["provider"],
-                row["model"], row["model_version"], row["temperature"],
+                row["model"], row["model_version"], _temperature_label(row["temperature"]),
                 row["prompt_hash"], row["input_hash"], row["output_hash"],
                 row["prompt_tokens"], row["completion_tokens"], row["cost_usd"],
                 "yes" if row["cached"] else "no",
@@ -513,3 +513,12 @@ def write_audit_log(project, path: str | Path) -> Path:
 
     workbook.save(path)
     return path
+
+
+def _temperature_label(value):
+    """The temperature as logged, or what the reserved value means."""
+    from ..ai.base import TEMPERATURE_NOT_SENT
+
+    if value == TEMPERATURE_NOT_SENT:
+        return "not sent (the model refuses one and uses its own)"
+    return value

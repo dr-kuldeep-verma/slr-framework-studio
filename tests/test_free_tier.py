@@ -250,3 +250,249 @@ class TestSystemInstructionFallback:
         p.complete(system="RULES", user="RECORD")
         p.complete(system="RULES", user="RECORD")
         assert sent == [["system", "user"], ["user"], ["user"]]
+
+
+class TestServerErrors:
+    """A provider's own failures (HTTP 5xx) are usually brief. They are
+    waited out, and if they persist the run pauses -- resumably -- rather
+    than ending with a traceback and a lost evening."""
+
+    def test_a_server_error_is_waited_out_not_hammered(self, tmp_path):
+        from slr_studio.ai.base import ProviderError
+        from slr_studio.core.project import Project
+        from slr_studio.screening.schemas import ScreeningAnswer
+
+        class Flaky(MockProvider):
+            def complete(self, **kwargs):
+                if self.n_calls == 0:
+                    self.n_calls += 1
+                    raise ProviderError("The provider returned 500.")
+                return super().complete(**kwargs)
+
+        slept = []
+        project = Project.create(tmp_path / "p", "t")
+        try:
+            client = AIClient(project, Flaky(), stage="screen", sleep=slept.append)
+            client.ask("screen", system="Screen against: " + PROTOCOL,
+                       user="Title: Resident participation", schema=ScreeningAnswer)
+        finally:
+            project.close()
+        assert slept and slept[0] >= 10
+
+    def test_a_persistent_server_error_pauses_the_run(self, dataset, tmp_path):
+        from slr_studio.ai.base import ProviderError
+
+        class Down(MockProvider):
+            def complete(self, **kwargs):
+                if self.n_calls >= 4:
+                    raise ProviderError("The provider returned 500.")
+                return super().complete(**kwargs)
+
+        result = run_benchmark(
+            dataset, protocol=PROTOCOL,
+            client_factory=lambda project: AIClient(
+                project, Down(), stage="screen", sleep=lambda _: None),
+            workspace=tmp_path / "w",
+        )
+        assert result.complete is False
+        assert any("500" in n for n in result.notes)
+
+    def test_a_refused_key_is_not_retried_as_if_it_were_transient(self, dataset,
+                                                                  tmp_path):
+        from slr_studio.ai.base import AuthenticationError
+
+        class BadKey(MockProvider):
+            def complete(self, **kwargs):
+                raise AuthenticationError("The API key was rejected.")
+
+        with pytest.raises(AuthenticationError):
+            run_benchmark(
+                dataset, protocol=PROTOCOL,
+                client_factory=lambda project: AIClient(
+                    project, BadKey(), stage="screen", sleep=lambda _: None),
+                workspace=tmp_path / "w",
+            )
+
+
+def test_the_server_error_message_carries_the_providers_words(monkeypatch):
+    from slr_studio.ai import providers
+    from slr_studio.ai.base import ProviderError
+
+    class Response:
+        status_code = 503
+        text = '{"error": {"message": "The model is overloaded."}}'
+
+    class FakeHttpx:
+        TimeoutException = HTTPError = Exception
+
+        @staticmethod
+        def post(*a, **k):
+            return Response()
+
+    monkeypatch.setattr(providers, "_httpx", lambda: FakeHttpx)
+    with pytest.raises(ProviderError, match="overloaded"):
+        providers._post("u", {}, {}, 1)
+
+
+class TestOneModelPerRun:
+    """A result is a property of one model. Resuming with another would mix
+    two models' decisions in one score and report it under one name."""
+
+    def test_resuming_with_another_model_is_refused(self, dataset, tmp_path):
+        from slr_studio.evaluation.benchmark import BenchmarkError
+
+        first = DailyCapProvider(cap=5)
+        first.model = "model-one"
+        run_benchmark(dataset, protocol=PROTOCOL,
+                      client_factory=lambda p: AIClient(p, first, stage="screen",
+                                                        sleep=lambda _: None),
+                      workspace=tmp_path / "w")
+        second = MockProvider()
+        second.model = "model-two"
+        with pytest.raises(BenchmarkError, match="model-one"):
+            run_benchmark(dataset, protocol=PROTOCOL,
+                          client_factory=lambda p: AIClient(p, second, stage="screen",
+                                                            sleep=lambda _: None),
+                          workspace=tmp_path / "w")
+
+    def test_resuming_with_the_same_model_is_allowed(self, dataset, tmp_path):
+        first = DailyCapProvider(cap=5)
+        first.model = "model-one"
+        run_benchmark(dataset, protocol=PROTOCOL,
+                      client_factory=lambda p: AIClient(p, first, stage="screen",
+                                                        sleep=lambda _: None),
+                      workspace=tmp_path / "w")
+        again = MockProvider()
+        again.model = "model-one"
+        result = run_benchmark(dataset, protocol=PROTOCOL,
+                               client_factory=lambda p: AIClient(p, again, stage="screen",
+                                                                 sleep=lambda _: None),
+                               workspace=tmp_path / "w")
+        assert result.complete
+
+
+class TestModelsThatRefuseTemperature:
+    """Newer models refuse a temperature setting. They are asked without it,
+    and the log says it was not sent -- never that it was 0."""
+
+    @staticmethod
+    def _refusal():
+        from slr_studio.ai.base import ProviderError
+
+        error = ProviderError(
+            'The provider rejected the request: {"type":"error","error":'
+            '{"type":"invalid_request_error","message":"`temperature` is '
+            'deprecated for this model."}}'
+        )
+        error.retryable = False
+        return error
+
+    def test_anthropic_retries_without_it_and_remembers(self, monkeypatch):
+        from slr_studio.ai import providers
+
+        sent = []
+
+        def fake_post(url, headers, payload, timeout):
+            sent.append("temperature" in payload)
+            if "temperature" in payload:
+                raise self._refusal()
+            return {"model": "claude-haiku-5-5", "stop_reason": "end_turn",
+                    "content": [{"type": "text", "text": "{}"}],
+                    "usage": {"input_tokens": 5, "output_tokens": 2}}
+
+        monkeypatch.setattr(providers, "_post", fake_post)
+        p = providers.AnthropicProvider("claude-haiku-5-5", api_key="k")
+        p.complete(system="s", user="u")
+        p.complete(system="s", user="u")
+        assert sent == [True, False, False]
+        assert p.sends_temperature is False
+
+    def test_the_openai_compatible_route_does_the_same(self, monkeypatch):
+        from slr_studio.ai import providers
+
+        sent = []
+
+        def fake_post(url, headers, payload, timeout):
+            sent.append("temperature" in payload)
+            if "temperature" in payload:
+                raise self._refusal()
+            return {"model": "m", "choices": [
+                {"message": {"content": "{}"}, "finish_reason": "stop"}]}
+
+        monkeypatch.setattr(providers, "_post", fake_post)
+        p = providers.OpenAICompatibleProvider("m", api_key="k", json_mode=False)
+        p.complete(system="s", user="u")
+        assert sent == [True, False]
+
+    def test_the_log_records_that_it_was_not_sent(self, tmp_path):
+        from slr_studio.ai.base import TEMPERATURE_NOT_SENT
+        from slr_studio.core.project import Project
+        from slr_studio.screening.schemas import ScreeningAnswer
+
+        provider = MockProvider()
+        provider.sends_temperature = False
+        project = Project.create(tmp_path / "p", "t")
+        try:
+            client = AIClient(project, provider, stage="screen", sleep=lambda _: None)
+            client.ask("screen", system="Screen against: " + PROTOCOL,
+                       user="Title: Resident participation", schema=ScreeningAnswer)
+            logged = project.db.scalar("SELECT temperature FROM ai_call")
+        finally:
+            project.close()
+        assert logged == TEMPERATURE_NOT_SENT
+
+    def test_the_exported_log_says_so_in_words(self):
+        from slr_studio.ai.base import TEMPERATURE_NOT_SENT
+        from slr_studio.exports.methods import _temperature_label
+
+        assert _temperature_label(0.0) == 0.0
+        assert "not sent" in _temperature_label(TEMPERATURE_NOT_SENT)
+
+
+def test_a_throttled_provider_reports_the_real_temperature_behaviour():
+    """The pacer wraps the provider; the log must see the wrapped one's
+    answer, or a model that refused temperature is logged as having had 0."""
+    inner = MockProvider()
+    inner.sends_temperature = False
+    assert ThrottledProvider(inner, per_minute=10).sends_temperature is False
+
+
+class TestAnAnswerCutOffAtTheLimit:
+    """A verbose model can run past the token limit mid-JSON. The error
+    says so, and the retry asks for a shorter answer rather than the same."""
+
+    def test_the_retry_asks_for_brevity_and_the_error_names_the_limit(self, tmp_path):
+        from slr_studio.ai.base import LLMResponse, ResponseFormatError, Usage
+        from slr_studio.core.project import Project
+        from slr_studio.screening.schemas import ScreeningAnswer
+
+        prompts = []
+
+        class Verbose(MockProvider):
+            def complete(self, *, system, user, max_tokens=1024, **kw):
+                prompts.append(user)
+                return LLMResponse(text='{"decision": "exclude", "reason": "Because',
+                                   model="m", model_version="m",
+                                   usage=Usage(10, max_tokens), stop_reason="max_tokens")
+
+        project = Project.create(tmp_path / "p", "t")
+        try:
+            client = AIClient(project, Verbose(), stage="screen", sleep=lambda _: None)
+            with pytest.raises(ResponseFormatError, match="700"):
+                client.ask("screen", system="s", user="Title: X",
+                           schema=ScreeningAnswer, max_tokens=700)
+        finally:
+            project.close()
+        assert "cut off" in prompts[1] and "shorter" in prompts[1]
+
+
+def test_the_report_names_the_real_provider_not_the_pacer(dataset, tmp_path):
+    inner = MockProvider()
+    result = run_benchmark(
+        dataset, protocol=PROTOCOL,
+        client_factory=lambda p: AIClient(p, ThrottledProvider(inner, 6000,
+                                          sleep=lambda s: None),
+                                          stage="screen", sleep=lambda _: None),
+        workspace=tmp_path / "w",
+    )
+    assert result.provider == inner.name

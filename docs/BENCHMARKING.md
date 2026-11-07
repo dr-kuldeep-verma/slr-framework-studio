@@ -14,14 +14,14 @@ already published, and compare.
 # 1. Get a labelled dataset (SYNERGY format: title, abstract, label).
 # 2. Write the review's eligibility criteria into a text file.
 # 3. Check the harness works, free, against the mock model:
-slr benchmark data/Appenzeller-Herzog_2020.csv \
+slr benchmark data/Appenzeller-Herzog_2019.csv \
     --protocol protocols/wilson.txt \
     --sample-irrelevant 400 --mock
 
 # 4. Then for real. The API key is the one saved in the application under
 #    Tools > Model settings; the command shows the estimated tokens and cost
 #    and asks before it spends anything.
-slr benchmark data/Appenzeller-Herzog_2020.csv \
+slr benchmark data/Appenzeller-Herzog_2019.csv \
     --protocol protocols/wilson.txt \
     --sample-irrelevant 400 \
     --provider anthropic --model claude-sonnet-5-5 \
@@ -42,23 +42,39 @@ publishes 26 systematic reviews: every record the search returned, and the
 decisions the human screeners made on it. Its own tool builds the CSVs:
 
 ```bash
-pip install synergy-dataset
+pip install synergy-dataset pandas
 synergy list                       # the dataset names
 set SYNERGY_SET=synergy            # Windows cmd; `export` elsewhere
-synergy get -d Appenzeller-Herzog_2020 -o data
+synergy get -d Appenzeller-Herzog_2019 -o data -v abstract_original
 ```
 
 `SYNERGY_SET=synergy` selects the classic collection (DOI
 10.34894/HE6NAQ), which keeps every record the search found, including
 those with no abstract. Without it the tool builds SYNERGY+, which keeps
 only open-access records with an abstract: a smaller, easier corpus, and a
-different one, so say which you used. The tool asks you to acknowledge that
-abstracts are rebuilt from an index and may not be republished as text;
-answer yes, and do not commit the CSVs to a public repository.
+different one, so say which you used.
 
-The loader reads the title/abstract label under either name SYNERGY has
-used for it (`label_abstract_included` now, `label_abstract_screening`
-before). Other collections in the same shape work too: the CLEF eHealth TAR
+`-v abstract_original` is not optional for the classic collection. The
+tool's `abstract` column reads a field only SYNERGY+ has, so without it
+every abstract comes out empty -- a benchmark of titles alone, which would
+look like a result and is not one. The loader reads whichever abstract
+column holds the text, and every report states how many records had none.
+
+The tool asks you to acknowledge that abstracts are rebuilt from an index
+and may not be republished as text; answer yes, and do not commit the CSVs
+to a public repository.
+
+**The classic collection has only the post-full-text label.** Its
+`labels.csv` carries `label_included` and nothing else, so it is what the
+loader uses, and the report says so. Read it this way: recall is measured
+against the studies the review finally included, which is the harm that
+matters, and is exact. Specificity and reviewer burden are pessimistic,
+because a record a human would rightly have kept at the abstract stage and
+dropped at full text counts against the screener. Some SYNERGY+ datasets
+carry `label_abstract_included` too; the loader prefers it wherever it
+exists.
+
+Other collections in the same shape work too: the CLEF eHealth TAR
 sets, Cohen's drug-review datasets.
 
 ## Three things that decide whether a benchmark is fair
@@ -103,7 +119,7 @@ thousands. Three options make that workable:
 Gemini, through its OpenAI-compatible endpoint:
 
 ```bash
-slr benchmark data/Appenzeller-Herzog_2020.csv \
+slr benchmark data/Appenzeller-Herzog_2019.csv \
     --protocol protocols/wilson.txt --sample-irrelevant 400 \
     --provider openai_compatible \
     --base-url https://generativelanguage.googleapis.com/v1beta/openai \
