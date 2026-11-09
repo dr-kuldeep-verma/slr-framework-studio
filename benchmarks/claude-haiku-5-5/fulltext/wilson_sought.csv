@@ -1,0 +1,135 @@
+record_id,openalex_id,doi,title,label,ta_decision,queue
+1,https://openalex.org/w2402226166,,Clinical aspects of Wilson's disease.,0,unclear,unclear
+4,https://openalex.org/w2887469578,https://doi.org/10.1002/mdc3.12639,An Unusual Dystonic Manifestation in Wilson's Disease,0,unclear,unclear
+5,https://openalex.org/w2033425122,https://doi.org/10.1016/s0140-6736(60)90109-4,TREATMENT OF WILSON'S DISEASE WITH PENICILLAMINE,0,unclear,unclear
+6,https://openalex.org/w2401276746,,Neuromuscular transmission and acetylcholine receptor antibodies in penicillamine-treated Wilson's disease patients.,0,unclear,unclear
+10,https://openalex.org/w2078973467,https://doi.org/10.1097/00000441-198612000-00002,Treatment of Wilson’s Disease with Zinc II. Validation of Oral 64Copper with Copper Balance,0,exclude,random_audit
+13,https://openalex.org/w2415817190,,[An unusual cutaneous reaction pattern as a side effect of penicillamine: elastosis perforans serpiginosa].,0,unclear,unclear
+15,https://openalex.org/w2003202605,https://doi.org/10.1016/j.yebeh.2010.06.013,Encopresis and epilepsy: An unusual presentation of Wilson's disease,0,unclear,unclear
+17,https://openalex.org/w2159075196,https://doi.org/10.1111/j.1365-2230.1991.tb00386.x,Case update-Progressive skin laxity secondary to penicillamine treatment,0,unclear,unclear
+18,https://openalex.org/w2073202193,https://doi.org/10.1001/archneur.1994.00540150106026,Development of Neurologic Symptoms in a Patient With Asymptomatic Wilson's Disease Treated With Penicillamine,0,exclude,random_audit
+26,https://openalex.org/w2169737231,https://doi.org/10.1177/1756285612471700,Recent advances in the management of choreas,0,exclude,random_audit
+28,https://openalex.org/w122745426,https://doi.org/10.1093/qjmed/42.3.619,Wilson's Disease in the United Kingdom and Taiwan<subtitle>I. GENERAL CHARACTERISTICS OF 142 CASES AND PROGNOSIS<break />II. A GENETIC ANALYSIS OF 88 CASES</subtitle>,1,exclude,random_audit
+29,https://openalex.org/w2061830345,https://doi.org/10.1007/bf00442196,Prognosis of Wilson's disease in childhood,0,unclear,unclear
+30,https://openalex.org/w2066911354,https://doi.org/10.1136/bmj.2.5973.726-a,Myasthenia syndrome during penicillamine treatment.,0,unclear,unclear
+36,https://openalex.org/w219064652,,[Nephrotic syndrome secondary to d-penicillamine in a patient with Wilson's disease].,0,unclear,unclear
+38,https://openalex.org/w1977544974,https://doi.org/10.1002/mds.23970,Copper deficiency in Wilson's disease: An avoidable complication of treatment,0,unclear,unclear
+40,https://openalex.org/w2038970734,https://doi.org/10.1186/1471-2431-11-56,Phenotypic and Genetic Characterization of a Cohort of Pediatric Wilson Disease Patients,0,unclear,conflict
+47,https://openalex.org/w1978311450,https://doi.org/10.7326/0003-4819-101-1-144_3,Zinc treatment of Wilson's disease,0,unclear,unclear
+49,https://openalex.org/w4242082702,https://doi.org/10.1097/00005792-199205000-00004,Wilson Disease,0,unclear,unclear
+51,https://openalex.org/w1983982014,https://doi.org/10.1136/adc.39.203.14,Familial Hepatic Copper Storage Disease: A Variant of Wilsons's Disease,0,unclear,unclear
+54,https://openalex.org/w2419100730,,[An EEG study of Wilson's disease].,0,unclear,unclear
+56,https://openalex.org/w4242082702,https://doi.org/10.1097/00005792-199205000-00004,Wilson disease.,0,unclear,unclear
+57,https://openalex.org/w2412635892,,[On the early diagnosis of Wilson's disease].,0,unclear,unclear
+58,https://openalex.org/w2141060691,https://doi.org/10.1136/gut.2005.087262,"Clinical presentation, diagnosis and long-term outcome of Wilson's disease: a cohort study",1,exclude,
+59,https://openalex.org/w2432837155,https://doi.org/10.1056/nejm198507043130114,Unusual Digestive Lesions in a Patient with Wilson's Disease Treated with Long-Term Penicillamine,0,unclear,unclear
+61,https://openalex.org/w2337096569,https://doi.org/10.1111/hepr.12717,Management for acute liver failure of Wilson disease: Indication for liver transplantation,0,unclear,unclear
+63,https://openalex.org/w1966435408,https://doi.org/10.1136/pgmj.61.714.357,Primary hepatocellular carcinoma associated with Wilson's disease in a young woman.,0,exclude,random_audit
+65,https://openalex.org/w2033618859,https://doi.org/10.1111/j.1365-2230.1981.tb02329.x,Penicillamine-induced dermal fragility in Wilson's disease (hepato-lenticular degeneration),0,unclear,unclear
+68,https://openalex.org/w1587735356,https://doi.org/10.1111/j.1749-6632.2009.05109.x,Neurologic Wilson's disease,0,exclude,random_audit
+75,https://openalex.org/w1965664866,https://doi.org/10.1097/00005176-199501000-00018,Wilsonʼs Disease Treated with Trientine during Pregnancy,0,unclear,unclear
+78,https://openalex.org/w2412150970,,[Wilson's disease].,0,unclear,unclear
+84,https://openalex.org/w1980784733,https://doi.org/10.1172/jci105606,Ceruloplasmin in Wilson's Disease*,0,exclude,random_audit
+86,https://openalex.org/w2415851885,https://doi.org/10.1016/s0025-7125(16)32886-3,What Wilson's Disease and Its Treatment have Taught us About the Metabolism of Copper: Observations in 27 Cases,1,unclear,unclear
+89,https://openalex.org/w2054725076,https://doi.org/10.1016/s0041-1345(00)01834-0,"Wilson’s disease: challenging diagnosis, management, and liver transplantation timing",0,unclear,unclear
+94,https://openalex.org/w1534330089,https://doi.org/10.1016/s1665-2681(19)31417-6,Response to different therapeutic approaches in Wilson disease. A long-term follow up study,1,exclude,
+95,https://openalex.org/w1964061849,https://doi.org/10.1136/bmj.301.6747.331,Wilson's disease in adults with cirrhosis but no neurological abnormalities.,0,unclear,unclear
+101,https://openalex.org/w2621217611,https://doi.org/10.1016/j.jfma.2017.05.008,Modality of treatment and potential outcome of Wilson disease in Taiwan: A population-based longitudinal study,1,exclude,
+104,https://openalex.org/w2467368633,,[Current problems of Wilson's disease (hepatolenticular degeneration)].,0,unclear,unclear
+112,https://openalex.org/w2430140057,,[Some problems of Wilson's disease].,0,unclear,unclear
+117,https://openalex.org/w2080058827,https://doi.org/10.1007/bf00868525,Effects of long-term treatment in Wilson's disease withd-penicillamine and zinc sulphate,1,unclear,unclear
+120,https://openalex.org/w2993588349,,Wilson's disease: a 1984 perspective.,0,unclear,unclear
+122,https://openalex.org/w2110697645,https://doi.org/10.1001/archneur.63.4.521,Treatment of Wilson Disease With Ammonium Tetrathiomolybdate,1,unclear,unclear
+124,https://openalex.org/w4242082702,https://doi.org/10.1097/00005792-199205000-00004,Wilson disease.,0,unclear,unclear
+125,https://openalex.org/w2415057633,,"[Wilson's disease: physiopathology, clinical aspects and therapy].",0,unclear,unclear
+128,https://openalex.org/w2800791154,https://doi.org/10.1007/s00108-017-0342-9,Morbus Wilson,0,unclear,unclear
+129,https://openalex.org/w2411079007,,[The effects of penicillamine and versenate in the treatment of Wilson's disease and lead poisoning].,0,unclear,unclear
+132,https://openalex.org/w2411227466,,[Diagnostic and therapeutic aspects of Wilson's disease in the preclinical stage].,0,unclear,unclear
+135,https://openalex.org/w1965992964,https://doi.org/10.1177/0883073812465011,Late Occurrence of Isolated Obsessive-Compulsive Behavior in a Boy With Wilson’s Disease on Treatment,0,unclear,unclear
+136,https://openalex.org/w4238624357,https://doi.org/10.1111/j.1753-4887.1968.tb00906.x,COPPER AND TASTE SENSITIVITY,0,unclear,unclear
+138,https://openalex.org/w2040469693,https://doi.org/10.1097/meg.0b013e328358f7da,Histologic evolution and long-term outcome of Wilson’s disease,1,exclude,
+142,https://openalex.org/w1989815568,https://doi.org/10.1056/nejm196802152780702,Prevention of Wilson's Disease in Asymptomatic Patients,1,exclude,
+143,https://openalex.org/w1968170652,https://doi.org/10.1016/s1590-8658(12)60278-3,P.03.11 LONG TERM ZINC THERAPY IN WILSON DISEASE CHILDREN WITH MILD LIVER DISEASE,0,unclear,unclear
+144,https://openalex.org/w4230187490,https://doi.org/10.1136/bmj.2.5756.270,Chelating agents in medicine.,0,unclear,unclear
+145,https://openalex.org/w2412150970,,Wilson's Disease,0,unclear,unclear
+152,https://openalex.org/w2312273353,https://doi.org/10.1212/wnl.10.2.123,"Effect of D, L-penicillamine on the urinary excretion of copper and calcium in hepatolenticular degeneration (Wilson's disease)",0,unclear,unclear
+154,https://openalex.org/w2396103563,,Oral zinc sulphate treatment in Wilson's disease.,0,unclear,unclear
+156,https://openalex.org/w4297981792,,Therapeutic orphans.,0,unclear,unclear
+159,https://openalex.org/w2409389686,,"[The portal circulation in liver parenchymal lesions, due to Wilson's disease and treated for a long time with D-penicillamine].",0,unclear,unclear
+160,https://openalex.org/w2013800707,https://doi.org/10.1016/j.amjmed.2011.10.020,Golden Ring in Eyes: All That Glitters Is Not Gold!,0,unclear,unclear
+162,https://openalex.org/w2414487877,https://doi.org/10.1056/nejm197701062960123,Neonatal Abnormalities Associated with D-Penicillamine Treatment during Pregnancy,0,unclear,unclear
+165,https://openalex.org/w2395972653,,[Current treatment of hepatolenticular degenerescence].,0,unclear,unclear
+166,https://openalex.org/w2399597954,,Zinc-copper interaction provides a novel and apparently effective alternative therapy for Wilson's disease.,0,unclear,unclear
+167,https://openalex.org/w2414560895,https://doi.org/10.1055/s-0028-1106021,Die Langzeitbehandlung des Morbus Wilson mit D-Penicillamin*,0,unclear,unclear
+172,https://openalex.org/w2400078646,,"COPPER BALANCE STUDIES IN WILSON'S DISEASE (HEPATOLENTICULAR DEGENERATION). OBSERVATIONS ON THE EFFECT OF PENICILLAMINE, CARBO-RESIN AND POTASSIUM SULFIDE.",0,unclear,unclear
+180,https://openalex.org/w2095874720,https://doi.org/10.3748/wjg.14.5876,High frequency of the c.3207C>A (p.H1069Q) mutation in ATP7B gene of Lithuanian patients with hepatic presentation of Wilson’s disease,0,exclude,random_audit
+181,https://openalex.org/w2026957274,https://doi.org/10.1136/adc.40.214.651,Effect of penicillamine on serum iron.,0,unclear,unclear
+182,https://openalex.org/w2153383858,https://doi.org/10.1017/s1748232107000043,Tetrathiomolybdate versus Trientine in the Initial Treatment of Neurologic Wilson's Disease,1,include,
+183,https://openalex.org/w2091813925,https://doi.org/10.7326/0003-4819-75-3-427,Wilson's Disease with Reversible Renal Tubular Dysfunction,0,unclear,unclear
+186,https://openalex.org/w2004289806,https://doi.org/10.1002/1531-8257(199907)14:4<545::aid-mds1001>3.0.co;2-u,Penicillamine: The treatment of first choice for patients with Wilson's disease,0,unclear,unclear
+189,https://openalex.org/w2161382529,https://doi.org/10.1111/j.1468-1331.2009.02607.x,Long-term outcome in Serbian patients with Wilson disease,1,exclude,
+198,https://openalex.org/w2020255964,https://doi.org/10.1111/j.1600-0404.1996.tb00056.x,Wilson disease: asymptomatic or late-onset type?,0,unclear,unclear
+199,https://openalex.org/w1485055766,,Isolated tongue involvement--an unusual presentation of Wilson's disease.,0,unclear,unclear
+200,https://openalex.org/w2033653810,https://doi.org/10.1016/j.jhep.2004.11.013,Wilson's disease: clinical management and therapy,0,unclear,unclear
+211,https://openalex.org/w2172501549,https://doi.org/10.1093/oxfordjournals.qjmed.a068822,Neurological Wilson's disease,0,unclear,unclear
+213,https://openalex.org/w573755264,https://doi.org/10.1007/s10545-015-9866-0,Concomitant immune-related events in Wilson disease: implications for monitoring chelator therapy,1,unclear,unclear
+220,https://openalex.org/w2006655446,https://doi.org/10.1016/s0140-6736(79)91051-1,COPPER LEVELS AFTER ORAL ZINC,0,unclear,unclear
+225,https://openalex.org/w1992641430,https://doi.org/10.1039/c1mt90005f,Metals in neurodegenerative disease,0,unclear,unclear
+226,https://openalex.org/w2110697645,https://doi.org/10.1001/archneur.63.4.521,Treatment of Wilson Disease With Ammonium Tetrathiomolybdate,1,exclude,
+231,https://openalex.org/w2573674957,https://doi.org/10.1056/nejmcpc1613467,Case 2-2017,0,exclude,random_audit
+233,https://openalex.org/w2329352754,,A case of Wilson's disease.,0,unclear,unclear
+234,https://openalex.org/w2142063181,https://doi.org/10.1007/s00775-014-1139-0,Biological consequences of zinc deficiency in the pathomechanisms of selected diseases,0,exclude,random_audit
+235,https://openalex.org/w1525689595,https://doi.org/10.1016/j.jns.2015.06.010,Early neurological worsening in patients with Wilson's disease,1,unclear,unclear
+240,https://openalex.org/w2079410580,https://doi.org/10.1007/s004060050060,Generators of brain electrical activity in patients with Wilson's disease,0,exclude,random_audit
+241,https://openalex.org/w1563368366,https://doi.org/10.1111/j.1478-3231.2010.02354.x,"Long-term follow-up of Wilson Disease: natural history, treatment, mutations analysis and phenotypic correlation",1,exclude,
+242,https://openalex.org/w2412356814,,[Wilson's disease: description of various cases].,0,unclear,unclear
+243,https://openalex.org/w2410603464,,[Fibrinolytic activity in patients with hepatolenticular degeneration: the effect of penicillamine].,0,unclear,unclear
+244,https://openalex.org/w2094549059,https://doi.org/10.1001/jama.1964.03070100042008,Penicillamine Therapy for Hepatolenticular Degeneration,0,unclear,unclear
+251,https://openalex.org/w2410361055,,[Functional disorders of the renal tubules in Wilson's disease].,0,unclear,unclear
+255,https://openalex.org/w2800791154,https://doi.org/10.1007/s00108-017-0342-9,Morbus Wilson,0,exclude,random_audit
+258,https://openalex.org/w2136975510,https://doi.org/10.1016/0045-9380(86)90015-0,Trace elements in development and disease,0,unclear,unclear
+262,https://openalex.org/w1997145025,https://doi.org/10.1126/scisignal.3129mr2,"Zinc Bells Rang in Jerusalem!A report on the Meeting of the International Society for Zinc Biology, Jerusalem, Israel, 1 to 5 December 2009.",0,exclude,random_audit
+263,https://openalex.org/w2044614434,https://doi.org/10.1007/s00415-005-0720-4,Wilson’s disease—cause of mortality in 164 patients during 1992–2003 observation period,1,unclear,unclear
+264,https://openalex.org/w2411776895,,[Therapy of neurologic manifestations of Wilson's disease using penicillamine].,0,unclear,unclear
+270,https://openalex.org/w4231858277,https://doi.org/10.1053/j.mpfou.2006.06.001,Drug interactions,0,unclear,unclear
+273,https://openalex.org/w2416255246,,TREATMENT OF WILSON'S DISEASE,0,unclear,unclear
+277,https://openalex.org/w2108765785,https://doi.org/10.1186/1750-1172-9-41,Zinc monotherapy is effective in Wilson’s disease patients with mild liver disease diagnosed in childhood: a retrospective study,1,include,random_audit
+281,https://openalex.org/w2437384594,,[Checking of urinary copper in patients with Wilson's disease during treatment with D-penicillamine].,0,unclear,unclear
+282,https://openalex.org/w2890095783,https://doi.org/10.1016/j.paed.2018.07.006,Neurological gait disorders in childhood,0,exclude,random_audit
+287,https://openalex.org/w2405893220,https://doi.org/10.5144/0256-4947.2012.623,Wilson disease in 71 patients followed for over two decades in a tertiary center in Saudi Arabia: a retrospective review,0,unclear,unclear
+292,https://openalex.org/w2026996728,https://doi.org/10.1007/s00535-004-1466-y,Recent clinical features of Wilson?s disease with hepatic presentation,1,exclude,
+304,https://openalex.org/w2329353608,https://doi.org/10.1016/j.jns.2013.07.467,D-penicillamine versus zinc sulfate as first-line therapy for Wilson's disease,0,unclear,unclear
+306,https://openalex.org/w2047722925,https://doi.org/10.4103/0028-3886.30446,Coexistence ofWilson′s diseaseand neurofibromatosis type 1 in a 14-year-old boy,0,unclear,unclear
+314,https://openalex.org/w2126282762,https://doi.org/10.1002/mds.25290,"Neurological Wilson's disease lethal for the son, asymptomatic in the father",0,unclear,unclear
+315,https://openalex.org/w2085066955,https://doi.org/10.1016/s0140-6736(83)90783-3,CUTIS LAXA AND LOW SERUM ZINC AFTER ANTENATAL EXPOSURE TO PENICILLAMINE,0,unclear,unclear
+316,https://openalex.org/w1944330014,https://doi.org/10.1093/ajcn/61.1.162,Potential complication of multivitamin use in patients with Wilson’s disease,0,unclear,unclear
+318,https://openalex.org/w2809715212,https://doi.org/10.5694/mja17.00831,Reversible pancytopenia caused by severe copper deficiency in a patient with Wilson disease,0,unclear,unclear
+320,https://openalex.org/w2412150970,,Wilson’s Disease,0,unclear,unclear
+324,https://openalex.org/w2436258152,,[Pregnancy in a case of Wilson's copper metabolism disorder].,0,unclear,unclear
+326,https://openalex.org/w2412793981,,[Use of penicillamine in Wilson-Konovalov disease].,0,unclear,unclear
+332,https://openalex.org/w1993337379,https://doi.org/10.1136/gut.48.6.849,Wilson's disease with severe hepatic insufficiency: beneficial effects of early administration of D-penicillamine,1,unclear,unclear
+334,https://openalex.org/w1992886088,https://doi.org/10.1016/j.cgh.2013.03.012,Efficacy and Safety of Oral Chelators in Treatment of Patients With Wilson Disease,1,include,
+339,https://openalex.org/w2033105955,https://doi.org/10.1053/j.gastro.2010.12.034,Zinc Monotherapy Is Not as Effective as Chelating Agents in Treatment of Wilson Disease,1,unclear,unclear
+340,https://openalex.org/w2401263836,,Drug therapy in Wilson's disease.,0,unclear,unclear
+344,https://openalex.org/w2510905424,https://doi.org/10.1111/j.1477-2574.2010.00165.x,Abstracts,0,exclude,random_audit
+350,https://openalex.org/w2433592766,,[Treatment of Wilson's disease with penicillamine and guajacuran].,0,unclear,unclear
+352,https://openalex.org/w1964268680,https://doi.org/10.4103/0971-4065.132024,D-penicillamine-induced membranous nephropathy,0,unclear,unclear
+358,https://openalex.org/w2166380959,https://doi.org/10.1017/s0022215100122170,Penicillamine-induced changes in elastic tissue of the upper respiratory tract,0,exclude,random_audit
+369,https://openalex.org/w2013019566,https://doi.org/10.1097/01.mcg.0000225670.91722.59,Diagnosis and Management of Wilson's Disease,1,unclear,unclear
+371,https://openalex.org/w1999577642,https://doi.org/10.1038/ncpneuro0291,Wilson's disease: an update.,0,unclear,unclear
+373,https://openalex.org/w2081020794,https://doi.org/10.1016/s1875-9572(10)60022-8,Clinical Features and Therapeutic Response in Taiwanese Children With Wilson's Disease: 12 Years of Experience in a Single Center,0,unclear,unclear
+376,https://openalex.org/w2416255246,,[Treatment of Wilson's disease].,0,unclear,unclear
+378,https://openalex.org/w2337191456,https://doi.org/10.1056/nejm198707233170405,The Use of Trientine in Preventing the Effects of Interrupting Penicillamine Therapy in Wilson's Disease,0,unclear,unclear
+388,https://openalex.org/w2462723469,,[Experiences with long-term therapy of Wilson's disease].,0,unclear,unclear
+389,https://openalex.org/w2399856932,,Wilson's disease: initial worsening of neurologic syndrome with penicillamine therapy.,0,unclear,unclear
+390,https://openalex.org/w2159753517,https://doi.org/10.1001/archneur.1992.00530260032012,Thiomolybdates in the Treatment of Wilson's Disease,0,exclude,random_audit
+391,https://openalex.org/w1512075735,https://doi.org/10.1007/s11377-009-0343-x,Hämochromatose und Morbus Wilson,0,exclude,random_audit
+393,https://openalex.org/w2309674367,,[Dermatological complications during treatment of Wilsons disease with D-penicillamine].,0,unclear,unclear
+397,https://openalex.org/w2906450930,https://doi.org/10.4414/smw.2018.14699,Hepatic manifestations of Wilson’s disease: 12-year experience in a Swiss tertiary referral centre,1,exclude,
+399,https://openalex.org/w2438548789,,[D-penicillamine in various diseases in childhood (author's transl)].,0,unclear,unclear
+412,https://openalex.org/w2015443313,https://doi.org/10.3748/wjg.v16.i12.1487,Wilson disease: Histopathological correlations with treatment on follow-up liver biopsies,1,exclude,
+414,https://openalex.org/w1969194948,https://doi.org/10.1001/archneur.1991.00530130050019,Initial Therapy of Patients With Wilson's Disease With Tetrathiomolybdate,0,unclear,unclear
+417,https://openalex.org/w2727600284,https://doi.org/10.1055/s-0037-1603975,Wilson's Disease Should Be Treated with Zinc rather than Trientine or Penicillamine,0,unclear,unclear
+420,https://openalex.org/w1885291223,https://doi.org/10.1002/cld.349,"Wilson disease: Clinical manifestations, diagnosis, and treatment",0,unclear,unclear
+422,https://openalex.org/w2082320762,https://doi.org/10.1097/00005176-200410000-00006,Serum Transaminases in Children with Wilson???s Disease,1,exclude,conflict
+423,https://openalex.org/w259804505,https://doi.org/10.3748/wjg.v4.i6.530,Comparison of long-lasting therapeutic effects between succimer and penicillamine on hepatolenticular degeneration,1,unclear,unclear

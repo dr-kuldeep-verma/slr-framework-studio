@@ -243,10 +243,12 @@ class TestDialogs:
 
     def test_the_model_dialog_marks_a_local_model_as_staying_put(self, qt_app):
         dialog = ModelSettingsDialog(ModelSettings(provider="ollama"))
+        assert dialog.radio_local.isChecked()
         assert "nothing is sent anywhere" in dialog.note.text()
 
     def test_the_model_dialog_says_when_data_leaves(self, qt_app):
         dialog = ModelSettingsDialog(ModelSettings(provider="anthropic"))
+        assert dialog.radio_api.isChecked()
         assert "sent to this provider" in dialog.note.text()
 
     def test_the_api_key_field_is_masked(self, qt_app):
@@ -255,8 +257,51 @@ class TestDialogs:
         dialog = ModelSettingsDialog(ModelSettings())
         assert dialog.key_edit.echoMode() == QLineEdit.EchoMode.Password
 
-    def test_choosing_a_local_model_disables_the_key_field(self, qt_app):
+    def test_choosing_the_free_option_saves_ollama_without_a_spending_limit(self, qt_app):
+        dialog = ModelSettingsDialog(ModelSettings(provider="anthropic", budget_usd=5.0))
+        dialog.radio_local.setChecked(True)
+        dialog.local_model_combo.setEditText("qwen2.5:7b")
+        values = dialog.values()
+        assert values.provider == "ollama" and values.model == "qwen2.5:7b"
+        assert values.budget_usd is None
+
+    def test_a_recommended_model_is_saved_by_its_name_not_its_label(self, qt_app):
+        dialog = ModelSettingsDialog(ModelSettings(provider="ollama"))
+        index = dialog.local_model_combo.findData("llama3.1:8b")
+        dialog.local_model_combo.setCurrentIndex(index)
+        assert "download" in dialog.local_model_combo.currentText()
+        assert dialog.values().model == "llama3.1:8b"
+
+    def test_ollama_not_running_offers_the_download_page(self, qt_app):
+        dialog = ModelSettingsDialog(ModelSettings(provider="ollama", base_url="http://127.0.0.1:9"))
+        assert "not running" in dialog.local_status.text()
+        assert not dialog.install_button.isHidden()
+
+    def test_the_subscription_choice_explains_plan_limits_and_privacy(self, qt_app, monkeypatch):
+        monkeypatch.setattr("slr_studio.ai.chatgpt.ChatGPTSession.signed_in", lambda self: False)
+        dialog = ModelSettingsDialog(ModelSettings(provider="chatgpt_subscription", model="gpt-6.1-sol"))
+        assert dialog.radio_plan.isChecked()
+        assert "sent to OpenAI" in dialog.note.text()
+        assert dialog.sign_in_button.text() == "Sign in with ChatGPT"
+        assert dialog.sign_out_button.isHidden()
+        values = dialog.values()
+        assert values.provider == "chatgpt_subscription" and values.model == "gpt-6.1-sol"
+
+    def test_the_pay_as_you_go_list_has_only_key_services(self, qt_app):
         dialog = ModelSettingsDialog(ModelSettings(provider="anthropic"))
-        index = dialog.provider_combo.findData("ollama")
-        dialog.provider_combo.setCurrentIndex(index)
-        assert dialog.key_edit.isEnabled() is False
+        services = {dialog.provider_combo.itemData(i) for i in range(dialog.provider_combo.count())}
+        assert services == {"anthropic", "openai_compatible"}
+
+    def test_the_cost_screen_shows_plan_limits_instead_of_a_price(self, qt_app):
+        from slr_studio.ai.client import CostEstimate
+
+        estimate = CostEstimate(
+            n_calls=10, prompt_tokens=100, completion_tokens=100, cost_usd=0.0,
+            price_known=True, model="gpt-6.1-sol", billing="plan",
+            plan_calls_5h=3, plan_calls_7d=40,
+        )
+        dialog = CostDialog(estimate, "Screen")
+        text = " ".join(label.text() for label in dialog.findChildren(QLabel))
+        assert "US$" not in text
+        assert "usage limits" in text and "settings/usage" in text
+        assert "3 in the last 5 hours" in text

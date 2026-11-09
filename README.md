@@ -109,12 +109,25 @@ before it has produced what it needs.
 
 ### Step 5 — Connect a model
 
-For a real review you need an API key from a model provider. **Tools → Model
-settings…** Keys are stored in the Windows Credential Manager, never in a file
-and never in the project.
+**Tools → Model settings…** offers three ways to run a real review:
 
-Before any bulk run the application shows what it will cost, in tokens and
-money, and waits for you to agree. Runs can be paused and resumed.
+- **Free, on this computer (Ollama).** No account and no cost, and no record
+  leaves your machine. Install Ollama from <https://ollama.com/download>; the
+  settings window then lists your models and can download one for you. This
+  is the default for anyone who has not connected a paid account.
+- **Your ChatGPT subscription (Go, Plus or Pro).** Press *Sign in with ChatGPT*,
+  sign in in your browser, and the review runs on your plan. No API key and
+  no per-call charge: calls count against your plan's usage limits, and if
+  they run out the run pauses and resumes later.
+- **Pay as you go, with an API key** from Anthropic, OpenAI or a compatible
+  service.
+
+Keys and sign-in tokens are stored in the Windows Credential Manager, never in
+a file and never in the project.
+
+Before any bulk run the application shows what it will cost (or, on a ChatGPT
+plan, the plan's limits) and waits for you to agree. Runs can be paused and
+resumed.
 
 ### What you will need before you start
 
@@ -122,7 +135,8 @@ money, and waits for you to agree. Runs can be paused and resumed.
 - The date your searches were last run. Every claim of absence the Gap Finder
   makes is qualified against it, and it is yours to state — the application
   never infers it from when the software happened to run.
-- An API key, unless you are only running the demonstration.
+- A model: Ollama (free), a paid ChatGPT plan, or an API key. The
+  demonstration needs none of these.
 - Your eligibility criteria, in words you are prepared to be held to.
 
 ---
@@ -439,14 +453,22 @@ counted and reported.
 
 ## Choosing a model
 
-Anthropic's API is the default. An OpenAI-compatible endpoint covers OpenAI,
-Azure deployments and university gateways, and Ollama runs a model on your own
-machine for reviews whose data may not leave it. The choice is stored with the
-project rather than as a global preference, so reopening a finished review
-shows what it was actually screened with.
+Ollama, which runs a model on your own machine, is the default when no paid
+account is connected: it is free, and it suits reviews whose data may not
+leave the machine. Anthropic's API and any OpenAI-compatible endpoint (OpenAI,
+Azure deployments, university gateways) are paid per token. A paid ChatGPT
+subscription (Go, Plus or Pro) can be used through OpenAI's *Sign in with ChatGPT*, which
+bills calls against the plan's usage limits; the AI-use statement then says
+so, and records that the model chose its own temperature, since that route
+does not accept one. Claude subscriptions cannot be used this way: Anthropic
+does not allow other applications to use them, so Claude needs an API key.
 
-API keys go in the Windows Credential Manager through `keyring`, never in the
-project file or the audit log, with an environment variable as a fallback.
+The choice is stored with the project rather than as a global preference, so
+reopening a finished review shows what it was actually screened with.
+
+API keys and ChatGPT sign-in tokens go in the Windows Credential Manager
+through `keyring`, never in the project file or the audit log, with an
+environment variable as a fallback for API keys.
 
 Before any bulk run you are shown the number of calls, an approximate token
 count and an estimated cost, and prompts already answered are counted as free.

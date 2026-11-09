@@ -16,7 +16,13 @@ from typing import Any
 from .mock import MockProvider
 from .providers import PROVIDERS, build_provider
 
-__all__ = ["ModelSettings", "load_settings", "save_settings", "provider_from_settings"]
+__all__ = [
+    "ModelSettings",
+    "default_provider",
+    "load_settings",
+    "save_settings",
+    "provider_from_settings",
+]
 
 _KEYS = {
     "provider": "ai.provider",
@@ -64,11 +70,35 @@ class ModelSettings:
         }
 
 
+def default_provider() -> str:
+    """The model a review uses before anyone has chosen one.
+
+    A paid account the reviewer has already connected, if there is one;
+    otherwise a free model on this computer through Ollama. Ollama costs
+    nothing and keeps every record on the machine, which is the right
+    starting point for someone who has not paid for anything.
+    """
+    from . import keys
+
+    if keys.has_key("anthropic"):
+        return "anthropic"
+    if keys.has_key("openai_compatible"):
+        return "openai_compatible"
+    try:
+        from .chatgpt import ChatGPTSession
+
+        if ChatGPTSession().signed_in():
+            return "chatgpt_subscription"
+    except Exception:
+        pass
+    return "ollama"
+
+
 def load_settings(project) -> ModelSettings:
     db = project.db
     budget = db.get_meta(_KEYS["budget_usd"])
     return ModelSettings(
-        provider=db.get_meta(_KEYS["provider"], "anthropic") or "anthropic",
+        provider=db.get_meta(_KEYS["provider"], "") or default_provider(),
         model=db.get_meta(_KEYS["model"], "") or "",
         base_url=db.get_meta(_KEYS["base_url"], "") or "",
         budget_usd=float(budget) if budget else None,
@@ -100,8 +130,22 @@ def provider_from_settings(settings: ModelSettings):
     """Build the provider a project is configured to use."""
     if settings.offline:
         return MockProvider()
+    model = settings.resolved_model()
+    if settings.provider == "chatgpt_subscription" and not model:
+        # No model was picked yet: use the first one the account offers.
+        from .chatgpt import ChatGPTSession
+
+        offered = ChatGPTSession().list_models()
+        if not offered:
+            from .base import ProviderError
+
+            raise ProviderError(
+                "This ChatGPT account offers no models to applications. "
+                "Choose another model under Tools → Model settings."
+            )
+        model = offered[0]["slug"]
     return build_provider(
         settings.provider,
-        settings.resolved_model(),
+        model,
         base_url=settings.resolved_base_url(),
     )

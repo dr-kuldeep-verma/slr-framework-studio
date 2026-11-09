@@ -287,10 +287,16 @@ class ProviderSpec:
     needs_key: bool
     base_url: str
     description: str
+    #: "key" (an API key), "signin" (Sign in with ChatGPT) or "none".
+    auth: str = "key"
 
     @property
     def sends_data_off_device(self) -> bool:
         return self.factory.sends_data_off_device
+
+    @property
+    def billing(self) -> str:
+        return getattr(self.factory, "billing", "tokens")
 
 
 # The default models below are starting points, not recommendations. Model
@@ -305,7 +311,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
         default_model="claude-sonnet-5-5",
         needs_key=True,
         base_url="https://api.anthropic.com",
-        description="The default. Records are sent to Anthropic's API.",
+        description="Claude, paid per token. Records are sent to Anthropic's API.",
     ),
     "openai_compatible": ProviderSpec(
         key="openai_compatible",
@@ -330,8 +336,34 @@ PROVIDERS: dict[str, ProviderSpec] = {
             "Runs on this computer. Nothing is sent anywhere. Choose this "
             "when records may not leave the machine."
         ),
+        auth="none",
     ),
 }
+
+
+def _register_chatgpt() -> None:
+    # Imported here: chatgpt.py imports this module's neighbours, not this one,
+    # but keeping the registry free of its import order is simpler.
+    from .chatgpt import RESOURCE, ChatGPTSubscriptionProvider
+
+    PROVIDERS["chatgpt_subscription"] = ProviderSpec(
+        key="chatgpt_subscription",
+        label="ChatGPT subscription (Go, Plus or Pro)",
+        factory=ChatGPTSubscriptionProvider,
+        # Chosen from the account's own model list after signing in.
+        default_model="",
+        needs_key=False,
+        base_url=RESOURCE,
+        description=(
+            "Uses your ChatGPT plan through Sign in with ChatGPT: no API key "
+            "and no per-call charge, within your plan's usage limits. "
+            "Records are sent to OpenAI under your ChatGPT account."
+        ),
+        auth="signin",
+    )
+
+
+_register_chatgpt()
 
 
 def build_provider(key: str, model: str | None = None, **options: Any) -> Provider:
@@ -350,7 +382,12 @@ def available_providers() -> list[dict[str, Any]]:
 
     out: list[dict[str, Any]] = []
     for spec in PROVIDERS.values():
-        ready = (not spec.needs_key) or has_key(spec.key)
+        if spec.auth == "signin":
+            from .chatgpt import ChatGPTSession
+
+            ready = ChatGPTSession().signed_in()
+        else:
+            ready = (not spec.needs_key) or has_key(spec.key)
         out.append(
             {
                 "key": spec.key,
@@ -362,6 +399,8 @@ def available_providers() -> list[dict[str, Any]]:
                 "base_url": spec.base_url,
                 "description": spec.description,
                 "sends_data_off_device": spec.sends_data_off_device,
+                "auth": spec.auth,
+                "billing": spec.billing,
             }
         )
     return out

@@ -53,7 +53,19 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtGui import QGuiApplication
 
     from slr_studio.ui.main_window import MainWindow
-    from slr_studio.ui.theme import apply_theme
+    from slr_studio.ui.theme import app_icon, apply_theme
+
+    if sys.platform == "win32":  # pragma: no cover - Windows only
+        # Without this, a copy run from Python shows Python's icon in the
+        # taskbar instead of the application's.
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "SLRFrameworkStudio.Desktop"
+            )
+        except Exception:
+            pass
 
     # Before the application object, or it has no effect. Windows laptops
     # are commonly set to 125% or 150%, and with the default rounding Qt
@@ -67,6 +79,11 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName(__app_name__)
     app.setOrganizationName("SLR Framework Studio")
     apply_theme(app)
+    app.setWindowIcon(app_icon())
+    # Long explanations in pop-ups scroll instead of running off the screen.
+    from slr_studio.ui.scrolling import install_scrolling_messages
+
+    install_scrolling_messages()
 
     window = MainWindow()
     window.show()

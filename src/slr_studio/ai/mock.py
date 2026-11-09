@@ -157,7 +157,9 @@ class MockProvider(Provider):
         everything.
         """
         head = system[:400].casefold()
-        if "proposing a construct codebook" in head:
+        if "proposing a construct codebook" in head or (
+            "definitions for a construct codebook" in head
+        ):
             return "codebook"
         if "group constructs into themes" in head:
             return "themes"

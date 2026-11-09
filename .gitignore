@@ -55,3 +55,6 @@ desktop.ini
 
 # Download cache written by the synergy-dataset tool
 /synergy_cache.sqlite
+
+# Tourism benchmark: kept private until the source review is published
+/benchmarks/claude-haiku-5-5/tourism/

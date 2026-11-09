@@ -49,6 +49,8 @@ the page it cites — is only as good as the text extraction underneath it.
 | [Pillow](https://python-pillow.org/) | 12.3.0 | MIT-CMU (HPND) | Draws the PNG figures and the evidence gap map |
 | [reportlab](https://www.reportlab.com/) | 5.0.1 | BSD | The PDF exports |
 | [httpx](https://www.python-httpx.org/) | 0.28.1 | BSD-3-Clause | Calls to the model provider and to Unpaywall |
+| [PyJWT](https://github.com/jpadilla/pyjwt) | 2.15.0 | MIT | Checks the signed ID token when a reviewer signs in with ChatGPT |
+| [cryptography](https://github.com/pyca/cryptography) | 50.0.1 | Apache-2.0 or BSD-3-Clause (dual) | The signature check PyJWT relies on |
 | [python-dateutil](https://github.com/dateutil/dateutil) | 2.9.0 | Apache-2.0 or BSD-3-Clause (dual) | Parsing dates out of database exports |
 | [pytesseract](https://github.com/madmaze/pytesseract) | 0.3.13 | Apache-2.0 | Optional: OCR for scanned PDFs |
 

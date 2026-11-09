@@ -20,6 +20,9 @@ dependencies = [
     "openpyxl>=3.1",
     "httpx>=0.27",
     "keyring>=25.0",
+    # Checks the signature on the ID token OpenAI returns when a reviewer
+    # signs in with ChatGPT, against OpenAI's published keys.
+    "PyJWT[crypto]>=2.8",
     # The framework figures are a deliverable the spec's acceptance test
     # names, so neither of these is optional in the packaged application:
     # python-pptx writes the editable PowerPoint figure and Pillow draws the

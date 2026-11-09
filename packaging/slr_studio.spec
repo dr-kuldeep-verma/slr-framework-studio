@@ -77,6 +77,11 @@ a = Analysis(
         # sees instead of the window.
         "platformdirs",
         "jaraco.text",
+        # Sign in with ChatGPT: the ID-token check loads its RSA support
+        # lazily, out of PyInstaller's sight.
+        "jwt.algorithms",
+        "cryptography.hazmat.primitives.asymmetric.rsa",
+        "cryptography.hazmat.primitives.asymmetric.ec",
     ],
     hookspath=[],
     runtime_hooks=[],

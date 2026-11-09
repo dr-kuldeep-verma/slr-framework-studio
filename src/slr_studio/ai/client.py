@@ -28,6 +28,7 @@ from ..core.hashing import canonical_json, sha256_text
 from .base import (
     TEMPERATURE_NOT_SENT,
     AIError,
+    BudgetExceeded,
     Provider,
     ProviderError,
     RateLimitError,
@@ -40,12 +41,6 @@ from .providers import parse_json_object
 __all__ = ["AIClient", "AIResult", "CostEstimate", "BudgetExceeded"]
 
 T = TypeVar("T", bound=BaseModel)
-
-
-class BudgetExceeded(AIError):
-    """The run hit the ceiling the reviewer set."""
-
-    retryable = False
 
 
 @dataclass
@@ -72,6 +67,13 @@ class CostEstimate:
     model: str
     n_cached: int = 0
     notes: list[str] = field(default_factory=list)
+    #: "tokens" (priced per token) or "plan" (a subscription's usage limits).
+    billing: str = "tokens"
+    #: For plan billing: plan calls this project made recently, so the
+    #: reviewer can judge the run against the allowance. OpenAI gives
+    #: applications no figure for what is left.
+    plan_calls_5h: int = 0
+    plan_calls_7d: int = 0
 
     @property
     def total_tokens(self) -> int:
@@ -83,6 +85,12 @@ class CostEstimate:
         if self.n_cached:
             calls += f" ({self.n_cached:,} already cached and free)"
         tokens = f"about {self.total_tokens:,} tokens"
+        if self.billing == "plan":
+            return (
+                f"{calls}, {tokens}, on {self.model} through your ChatGPT "
+                "plan. No per-call charge: the calls count against your "
+                "plan's usage limits instead."
+            )
         if not self.price_known:
             return (
                 f"{calls}, {tokens}. No price is on file for {self.model}, so "
@@ -99,7 +107,25 @@ class CostEstimate:
             "cost_usd": round(self.cost_usd, 4),
             "price_known": self.price_known,
             "model": self.model,
+            "billing": self.billing,
         }
+
+    def plan_limit_lines(self) -> list[str]:
+        """What the cost screen says in place of a price, for plan billing."""
+        from .chatgpt import USAGE_PAGE
+
+        return [
+            "Billed to: your ChatGPT plan (Sign in with ChatGPT). There is no "
+            "per-call price, so no dollar estimate is shown.",
+            "Limits: OpenAI sets a usage allowance for each application, and "
+            "on some plans this shares a short rolling window with your own "
+            "ChatGPT use. OpenAI does not tell applications how much is "
+            f"left; you can see it at {USAGE_PAGE}.",
+            f"This review's plan calls so far: {self.plan_calls_5h:,} in the "
+            f"last 5 hours, {self.plan_calls_7d:,} in the last 7 days.",
+            "If the limit is reached the run pauses, keeps everything already "
+            "decided, and carries on from there when you start it again.",
+        ]
 
 
 class AIClient:
@@ -166,12 +192,17 @@ class AIClient:
 
         self._check_budget()
         response, value, attempts = self._call_with_retries(system, user, schema, max_tokens)
-        cost, _ = estimate_cost(
-            response.model,
-            response.usage.prompt_tokens,
-            response.usage.completion_tokens,
-            self.rate_overrides,
-        )
+        if getattr(self.provider, "billing", "tokens") == "plan":
+            # Paid for by the subscription, not per call. Pricing the tokens
+            # at the API's rate would put a cost in the log nobody paid.
+            cost = 0.0
+        else:
+            cost, _ = estimate_cost(
+                response.model,
+                response.usage.prompt_tokens,
+                response.usage.completion_tokens,
+                self.rate_overrides,
+            )
         self.spent_usd += cost
         self.n_calls += 1
         if self.use_cache:
@@ -300,10 +331,14 @@ class AIClient:
                     continue
             prompt_tokens += estimate_tokens(system) + estimate_tokens(user)
             completion_tokens += expected_completion_tokens
-        cost, known = estimate_cost(
-            self.provider.model, prompt_tokens, completion_tokens, self.rate_overrides
-        )
-        return CostEstimate(
+        billing = getattr(self.provider, "billing", "tokens")
+        if billing == "plan":
+            cost, known = 0.0, True
+        else:
+            cost, known = estimate_cost(
+                self.provider.model, prompt_tokens, completion_tokens, self.rate_overrides
+            )
+        estimate = CostEstimate(
             n_calls=len(prompts) - n_cached,
             n_cached=n_cached,
             prompt_tokens=prompt_tokens,
@@ -311,7 +346,30 @@ class AIClient:
             cost_usd=cost,
             price_known=known or not prompt_tokens,
             model=self.provider.model,
+            billing=billing,
         )
+        if billing == "plan":
+            estimate.plan_calls_5h, estimate.plan_calls_7d = self._recent_plan_calls()
+        return estimate
+
+    def _recent_plan_calls(self) -> tuple[int, int]:
+        """Uncached calls through the plan in the last 5 hours and 7 days."""
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+
+        def since(delta: timedelta) -> int:
+            cutoff = (now - delta).strftime("%Y-%m-%dT%H:%M:%S")
+            return int(
+                self.db.scalar(
+                    "SELECT COUNT(*) FROM ai_call WHERE provider = ? AND cached = 0 "
+                    "AND created_at >= ?",
+                    (self.provider.name, cutoff),
+                )
+                or 0
+            )
+
+        return since(timedelta(hours=5)), since(timedelta(days=7))
 
     # -- cache -------------------------------------------------------------
 

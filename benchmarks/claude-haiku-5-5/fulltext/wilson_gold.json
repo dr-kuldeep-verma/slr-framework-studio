@@ -1,0 +1,551 @@
+{
+ "source": "Appenzeller-Herzog C, et al. Liver Int. 2019;39(11):2136-2152, Table 1 (characteristics of included studies), transcribed by hand before any full-text run.",
+ "vocabulary": {
+  "design": [
+   "retrospective_observational",
+   "prospective_observational",
+   "non_randomised_controlled_trial",
+   "randomised_controlled_trial"
+  ],
+  "arms": [
+   "dpen",
+   "trientine",
+   "zinc",
+   "ttm",
+   "succimer",
+   "no_treatment"
+  ],
+  "outcomes": [
+   "mortality",
+   "improved",
+   "side_effects",
+   "discontinuation",
+   "neuro_deterioration",
+   "olt",
+   "fibrosis",
+   "autoimmune",
+   "survival_15y"
+  ]
+ },
+ "studies": [
+  {
+   "study": "Goldstein 1968",
+   "records": [
+    86
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "no_treatment"
+   ],
+   "outcomes": [
+    "mortality",
+    "improved"
+   ],
+   "n": 23,
+   "n_original": 26
+  },
+  {
+   "study": "Sternlieb 1968",
+   "records": [
+    142
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "no_treatment"
+   ],
+   "outcomes": [
+    "mortality",
+    "improved"
+   ],
+   "n": 53,
+   "n_original": 53
+  },
+  {
+   "study": "Strickland 1973",
+   "records": [
+    28
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "no_treatment"
+   ],
+   "outcomes": [
+    "mortality",
+    "improved"
+   ],
+   "n": 88,
+   "n_original": 88
+  },
+  {
+   "study": "Durand 2001",
+   "records": [
+    332
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "no_treatment"
+   ],
+   "outcomes": [
+    "mortality",
+    "olt"
+   ],
+   "n": 17,
+   "n_original": 17
+  },
+  {
+   "study": "Weiss 2011",
+   "records": [
+    339,
+    58
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine",
+    "zinc"
+   ],
+   "outcomes": [
+    "mortality",
+    "improved",
+    "side_effects",
+    "discontinuation",
+    "neuro_deterioration"
+   ],
+   "n": 267,
+   "n_original": 267,
+   "note": "Merle 2007 (record 58) is a linked report of the same cohort"
+  },
+  {
+   "study": "Sini 2013",
+   "records": [
+    138
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine",
+    "zinc"
+   ],
+   "outcomes": [
+    "fibrosis"
+   ],
+   "n": 17,
+   "n_original": 23
+  },
+  {
+   "study": "Seessle 2016",
+   "records": [
+    213
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine",
+    "zinc"
+   ],
+   "outcomes": [
+    "autoimmune"
+   ],
+   "n": 207,
+   "n_original": 207
+  },
+  {
+   "study": "Tai 2018",
+   "records": [
+    101
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine",
+    "zinc"
+   ],
+   "outcomes": [
+    "discontinuation"
+   ],
+   "n": 37,
+   "n_original": 66
+  },
+  {
+   "study": "Czlonkowska 1996",
+   "records": [
+    117
+   ],
+   "design": "non_randomised_controlled_trial",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "mortality",
+    "side_effects",
+    "discontinuation"
+   ],
+   "n": 48,
+   "n_original": 67
+  },
+  {
+   "study": "Iorio 2004",
+   "records": [
+    422
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "olt",
+    "discontinuation"
+   ],
+   "n": 109,
+   "n_original": 109
+  },
+  {
+   "study": "Czlonkowska 2005",
+   "records": [
+    263
+   ],
+   "design": "prospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "mortality"
+   ],
+   "n": 160,
+   "n_original": 164
+  },
+  {
+   "study": "Medici 2006",
+   "records": [
+    369
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation",
+    "neuro_deterioration",
+    "olt",
+    "mortality"
+   ],
+   "n": 35,
+   "n_original": 35
+  },
+  {
+   "study": "Svetel 2009",
+   "records": [
+    189
+   ],
+   "design": "prospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "survival_15y"
+   ],
+   "n": 89,
+   "n_original": 89
+  },
+  {
+   "study": "Cope-Yokoyama 2010",
+   "records": [
+    412
+   ],
+   "design": "prospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "fibrosis"
+   ],
+   "n": 11,
+   "n_original": 12
+  },
+  {
+   "study": "Bruha 2011",
+   "records": [
+    241
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation"
+   ],
+   "n": 93,
+   "n_original": 112
+  },
+  {
+   "study": "Rodriguez 2012",
+   "records": [
+    94
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation",
+    "olt"
+   ],
+   "n": 20,
+   "n_original": 20,
+   "note": "Table 1 lists subgroup sizes 10, 3, 5, 2 without a total"
+  },
+  {
+   "study": "Ranucci 2014",
+   "records": [
+    277
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "neuro_deterioration",
+    "discontinuation",
+    "mortality",
+    "olt"
+   ],
+   "n": 42,
+   "n_original": 42
+  },
+  {
+   "study": "Czlonkowska 2014",
+   "records": [
+    235
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation",
+    "mortality",
+    "neuro_deterioration"
+   ],
+   "n": 143,
+   "n_original": 143,
+   "note": "The corpus holds only the linked report Litwin 2015 (record 235)"
+  },
+  {
+   "study": "Vieira Barbosa 2018",
+   "records": [
+    397
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "zinc"
+   ],
+   "outcomes": [
+    "discontinuation",
+    "mortality",
+    "olt"
+   ],
+   "n": 3,
+   "n_original": 8
+  },
+  {
+   "study": "Kumagi 2004",
+   "records": [
+    292
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine"
+   ],
+   "outcomes": [
+    "mortality",
+    "olt",
+    "side_effects",
+    "discontinuation"
+   ],
+   "n": 13,
+   "n_original": 16
+  },
+  {
+   "study": "Weiss 2013",
+   "records": [
+    334
+   ],
+   "design": "retrospective_observational",
+   "arms": [
+    "dpen",
+    "trientine"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation",
+    "neuro_deterioration"
+   ],
+   "n": 333,
+   "n_original": 333
+  },
+  {
+   "study": "Ren 1998",
+   "records": [
+    423
+   ],
+   "design": "non_randomised_controlled_trial",
+   "arms": [
+    "dpen",
+    "succimer"
+   ],
+   "outcomes": [
+    "improved",
+    "side_effects",
+    "discontinuation"
+   ],
+   "n": 120,
+   "n_original": 120,
+   "note": "Both arms also received zinc gluconate"
+  },
+  {
+   "study": "Brewer 2006",
+   "records": [
+    122,
+    226,
+    182
+   ],
+   "design": "randomised_controlled_trial",
+   "arms": [
+    "trientine",
+    "ttm"
+   ],
+   "outcomes": [
+    "neuro_deterioration",
+    "mortality",
+    "side_effects"
+   ],
+   "n": 48,
+   "n_original": 48,
+   "note": "Records 122 and 226 are the same article listed twice in the corpus; Brewer 2008 (record 182) is a linked report. Both arms also received zinc acetate"
+  }
+ ],
+ "synthesis": {
+  "source": "Appenzeller-Herzog 2019, Table 2 (pooled odds ratios, first-named treatment vs second) and text. 'clear' = 95% CI of the primary model excludes 1.",
+  "findings": [
+   {
+    "comparison": "dpen vs no_treatment",
+    "outcome": "mortality",
+    "or": 0.013,
+    "ci": [
+     0.001,
+     0.17
+    ],
+    "verdict": "dpen lower",
+    "clear": true
+   },
+   {
+    "comparison": "dpen vs no_treatment",
+    "outcome": "improved",
+    "or": 22.3,
+    "ci": [
+     0.4,
+     1200
+    ],
+    "verdict": "no clear difference",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "mortality",
+    "or": 0.73,
+    "ci": [
+     0.16,
+     3.4
+    ],
+    "verdict": "no clear difference",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "improved",
+    "or": 0.84,
+    "ci": [
+     0.48,
+     1.48
+    ],
+    "verdict": "no clear difference",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "olt",
+    "or": 1.74,
+    "ci": [
+     0.066,
+     46.0
+    ],
+    "verdict": "no clear difference",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "side_effects",
+    "or": 3.28,
+    "ci": [
+     0.54,
+     19.9
+    ],
+    "verdict": "no clear difference (Peto OR 3.68, 2.10-6.43)",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "neuro_deterioration",
+    "or": 3.71,
+    "ci": [
+     0.42,
+     32.7
+    ],
+    "verdict": "no clear difference (Peto OR 2.86, 1.18-6.93)",
+    "clear": false
+   },
+   {
+    "comparison": "dpen vs zinc",
+    "outcome": "discontinuation",
+    "or": 2.96,
+    "ci": [
+     1.14,
+     7.66
+    ],
+    "verdict": "dpen higher",
+    "clear": true
+   }
+  ],
+  "narrative": "Comparisons of dpen with trientine, trientine with ttm, and dpen with succimer were not meta-analysed (too few studies); reported narratively."
+ }
+}

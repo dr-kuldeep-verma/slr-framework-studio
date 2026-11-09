@@ -12,7 +12,17 @@ from __future__ import annotations
 
 import os
 
-__all__ = ["get_key", "set_key", "delete_key", "has_key", "ENV_VARS", "KeyringUnavailable"]
+__all__ = [
+    "get_key",
+    "set_key",
+    "delete_key",
+    "has_key",
+    "get_secret",
+    "set_secret",
+    "delete_secret",
+    "ENV_VARS",
+    "KeyringUnavailable",
+]
 
 SERVICE = "SLR Framework Studio"
 
@@ -83,3 +93,57 @@ def delete_key(provider: str) -> None:
 
 def has_key(provider: str) -> bool:
     return bool(get_key(provider))
+
+
+# -- longer secrets ------------------------------------------------------------
+
+#: Windows Credential Manager holds at most 2,560 bytes per entry, stored as
+#: UTF-16, so about 1,280 characters. A sign-in token is longer than that, so
+#: long secrets are written in pieces with a count beside them.
+CHUNK = 1000
+
+
+def set_secret(name: str, value: str) -> None:
+    """Store a secret of any length under ``name``."""
+    kr = _keyring()
+    delete_secret(name)
+    pieces = [value[i : i + CHUNK] for i in range(0, len(value), CHUNK)] or [""]
+    try:
+        for index, piece in enumerate(pieces):
+            kr.set_password(SERVICE, f"{name}#{index}", piece)
+        kr.set_password(SERVICE, f"{name}#n", str(len(pieces)))
+    except Exception as exc:
+        raise KeyringUnavailable(
+            f"Could not write to the credential store: {exc}"
+        ) from exc
+
+
+def get_secret(name: str) -> str | None:
+    """A secret written by :func:`set_secret`, or None."""
+    try:
+        kr = _keyring()
+        count = kr.get_password(SERVICE, f"{name}#n")
+        if not count:
+            return None
+        pieces = []
+        for index in range(int(count)):
+            piece = kr.get_password(SERVICE, f"{name}#{index}")
+            if piece is None:
+                return None  # half-written: treat as absent
+            pieces.append(piece)
+        return "".join(pieces)
+    except Exception:
+        return None
+
+
+def delete_secret(name: str) -> None:
+    try:
+        kr = _keyring()
+        count = kr.get_password(SERVICE, f"{name}#n")
+    except Exception:
+        return
+    for key in [f"{name}#n"] + [f"{name}#{i}" for i in range(int(count or 0))]:
+        try:
+            kr.delete_password(SERVICE, key)
+        except Exception:
+            pass

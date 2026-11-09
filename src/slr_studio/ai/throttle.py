@@ -60,6 +60,10 @@ class ThrottledProvider(Provider):
     def sends_temperature(self) -> bool:  # type: ignore[override]
         return getattr(self.inner, "sends_temperature", True)
 
+    @property
+    def billing(self) -> str:  # type: ignore[override]
+        return getattr(self.inner, "billing", "tokens")
+
     def __getattr__(self, attr: str) -> Any:
         # Only reached for attributes not found normally.
         return getattr(self.__dict__["inner"], attr)

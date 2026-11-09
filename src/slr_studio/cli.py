@@ -1178,7 +1178,135 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bench.set_defaults(func=cmd_benchmark)
 
+    p_pipe = sub.add_parser(
+        "benchmark-pipeline",
+        help="score full text, extraction, synthesis and framework against a published review",
+        description=(
+            "Carry the records a review sought at full text through every "
+            "later stage, with a script in the reviewer's place, and score "
+            "each AI first pass against the review's own decisions and "
+            "tables. Full texts are read from a folder; nothing is downloaded."
+        ),
+    )
+    p_pipe.add_argument("sought", help="CSV of the records sought at full text (record_id, openalex_id, doi, title, label)")
+    p_pipe.add_argument("--corpus", help="the SYNERGY CSV the records came from, for abstracts")
+    p_pipe.add_argument("--gold", required=True, help="the gold-standard JSON transcribed from the review")
+    p_pipe.add_argument("--pdfs", required=True, help="folder of PDFs named <record_id>.pdf")
+    p_pipe.add_argument("--protocol", required=True, help="text file with the review's aims and criteria")
+    p_pipe.add_argument("--workspace", required=True, help="folder for the run; the same folder resumes it")
+    p_pipe.add_argument("--out", help="where to write the report (.md; a .json is written beside it)")
+    p_pipe.add_argument("--provider", default="anthropic")
+    p_pipe.add_argument("--model", default="")
+    p_pipe.add_argument("--base-url", default="")
+    p_pipe.add_argument("--requests-per-minute", type=float)
+    p_pipe.add_argument("--budget", type=float, default=10.0, help="US dollar limit across all stages (default 10)")
+    p_pipe.add_argument("--project-info", help="JSON file of protocol fields to set before locking (for example a top-down S-O-B-C codebook)")
+    p_pipe.add_argument("--mock", action="store_true", help="use the mock model to check the harness")
+    p_pipe.add_argument("--yes", action="store_true", help="skip the cost confirmation")
+    p_pipe.set_defaults(func=cmd_benchmark_pipeline)
+
     return parser
+
+
+def cmd_benchmark_pipeline(args) -> int:
+    """Run and score the stages after screening."""
+    from .ai import AIClient, MockProvider
+    from .ai.settings import ModelSettings, provider_from_settings
+    from .evaluation.pipeline import (
+        PipelineCancelled,
+        load_gold,
+        load_records,
+        render_pipeline_report,
+        run_pipeline_benchmark,
+    )
+
+    protocol = Path(args.protocol).read_text(encoding="utf-8").strip()
+    records = load_records(args.sought, args.corpus)
+    gold = load_gold(args.gold)
+    pdfs = Path(args.pdfs)
+    have = sum((pdfs / f"{r.source_id}.pdf").exists() for r in records)
+    print(f"Records sought: {len(records)} ({sum(r.label for r in records)} relevant)")
+    print(f"Full texts in {pdfs}: {have}")
+
+    if args.mock:
+        factory = lambda project, stage: AIClient(  # noqa: E731
+            project, MockProvider(), stage=stage, sleep=lambda _: None
+        )
+        confirm = None
+    else:
+        from .ai.keys import has_key
+        from .ai.providers import PROVIDERS
+
+        spec = PROVIDERS.get(args.provider)
+        if spec is None:
+            raise ValueError(f"Unknown provider {args.provider!r}.")
+        if spec.needs_key and not has_key(args.provider):
+            raise ValueError(
+                f"No API key is saved for {spec.label}. Open the application, "
+                "choose Tools > Model settings, enter the key there, then run this again."
+            )
+        settings = ModelSettings(provider=args.provider, model=args.model, base_url=args.base_url)
+        print(f"Model: {settings.resolved_model()} ({spec.label})")
+        if spec.sends_data_off_device:
+            print("The text of each PDF will be sent to this provider.")
+
+        def factory(project, stage):
+            provider = provider_from_settings(settings)
+            if args.requests_per_minute:
+                from .ai.throttle import ThrottledProvider
+
+                provider = ThrottledProvider(provider, args.requests_per_minute)
+            return AIClient(project, provider, stage=stage)
+
+        def confirm(estimate, note) -> bool:
+            print(f"\nEstimate: {estimate.describe()}")
+            print(f"  {note}")
+            if args.yes:
+                return True
+            return input("Go ahead? [y/N] ").strip().lower() in ("y", "yes")
+
+    last = {"stage": None}
+
+    def progress(stage, done, total):
+        if stage != last["stage"]:
+            print(f"\n{stage}", end="", flush=True)
+            last["stage"] = stage
+        if total > 1:
+            print(f"\r{stage}: {done}/{total}", end="", flush=True)
+
+    try:
+        report = run_pipeline_benchmark(
+            records,
+            gold=gold,
+            pdf_dir=pdfs,
+            protocol=protocol,
+            client_factory=factory,
+            workspace=args.workspace,
+            budget_usd=args.budget,
+            project_info=(
+                json.loads(Path(args.project_info).read_text(encoding="utf-8"))
+                if args.project_info else None
+            ),
+            confirm=confirm,
+            on_progress=progress,
+        )
+    except PipelineCancelled:
+        print("Nothing was run.")
+        return 1
+    print()
+    out = Path(args.out) if args.out else Path.cwd() / "pipeline-benchmark.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_pipeline_report(report), encoding="utf-8")
+    out.with_suffix(".json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    if not report["complete"]:
+        print("\nThe run stopped early:")
+        for note in report["stopped"]:
+            print(f"  {note}")
+        print(f"\nRun the same command again (same --workspace) to carry on. Partial report: {out}")
+        return 3
+    print(f"\nReport: {out}")
+    print(f"Cost: US${report['calls'].get('cost', 0):.2f} over {report['calls'].get('n', 0)} calls")
+    return 0
 
 
 def cmd_benchmark(args) -> int:

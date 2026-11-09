@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from PySide6.QtGui import QColor, QFont, QPalette
 
-__all__ = ["COLOURS", "STYLESHEET", "apply_theme"]
+__all__ = ["COLOURS", "STYLESHEET", "apply_theme", "app_icon"]
 
 COLOURS = {
     # Surfaces, from the page backwards.
@@ -454,3 +454,22 @@ def apply_theme(app) -> None:
     app.setPalette(_palette())
     app.setFont(_font())
     app.setStyleSheet(STYLESHEET)
+
+
+def app_icon():
+    """The application's icon, at every size it was drawn for.
+
+    Small sizes are a simplified drawing, not a shrunken large one, so each
+    is added separately and Qt picks the closest.
+    """
+    from pathlib import Path
+
+    from PySide6.QtGui import QIcon
+
+    icon = QIcon()
+    folder = Path(__file__).resolve().parent.parent / "resources" / "icons"
+    for size in (16, 24, 32, 48, 64, 128, 256):
+        path = folder / f"app-icon-{size}.png"
+        if path.is_file():
+            icon.addFile(str(path))
+    return icon

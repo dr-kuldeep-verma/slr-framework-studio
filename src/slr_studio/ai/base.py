@@ -16,6 +16,8 @@ __all__ = [
     "AuthenticationError",
     "RateLimitError",
     "ResponseFormatError",
+    "BudgetExceeded",
+    "PlanLimitReached",
 ]
 
 
@@ -46,6 +48,25 @@ class ResponseFormatError(AIError):
     """The model answered, but not in the shape the schema requires."""
 
     retryable = True
+
+
+class BudgetExceeded(AIError):
+    """The run hit the ceiling the reviewer set.
+
+    Every stage catches this and pauses: what was decided is kept, and the
+    run carries on from there when it is started again.
+    """
+
+    retryable = False
+
+
+class PlanLimitReached(BudgetExceeded):
+    """A subscription's usage limit was reached (ChatGPT plan billing).
+
+    A kind of budget, set by the plan rather than by the reviewer, so the
+    stages pause on it exactly as they do at a spending limit. OpenAI does not
+    say when the allowance comes back, so the message does not guess.
+    """
 
 
 @dataclass(frozen=True)
@@ -89,6 +110,10 @@ class Provider(ABC):
     #: False once the backend has refused a temperature setting. Newer models
     #: do: they choose their own, and the log then records that none was sent.
     sends_temperature: bool = True
+    #: How the calls are paid for. "tokens": per token, priced from the rate
+    #: table. "plan": against a subscription's usage limits, with no
+    #: per-call price, so the cost screen shows those limits instead.
+    billing: str = "tokens"
 
     def __init__(self, model: str, **options: Any) -> None:
         self.model = model

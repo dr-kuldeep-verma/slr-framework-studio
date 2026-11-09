@@ -82,6 +82,14 @@ _TASK_WORDS = {
 }
 
 
+#: How a provider is named in the statement, where its registry key would
+#: mean nothing to a reader.
+_PROVIDER_WORDS = {
+    "chatgpt_subscription": "a ChatGPT subscription (Sign in with ChatGPT)",
+}
+_PLAN_PROVIDERS = {"chatgpt_subscription"}
+
+
 def _task_phrase(task: str) -> str:
     return _TASK_WORDS.get(task, task.replace("_", " ").replace(":", " "))
 
@@ -112,8 +120,18 @@ def ai_use_statement(project) -> str:
     described = "; ".join(
         f"{m['model']}"
         + (f" (version {m['model_version']})" if m["model_version"] else "")
-        + f" via {m['provider']}, {m['n_calls']} call(s)"
+        + f" via {_PROVIDER_WORDS.get(m['provider'], m['provider'])}, {m['n_calls']} call(s)"
         for m in models
+    )
+    plan_calls = sum(m["n_calls"] for m in models if m["provider"] in _PLAN_PROVIDERS)
+    plan_sentence = (
+        f" Of these, {plan_calls} were made through the reviewer's own "
+        "ChatGPT subscription using OpenAI's Sign in with ChatGPT, which "
+        "counts calls against the plan's usage limits rather than charging "
+        "for them; they have no per-call cost, and the model chose its own "
+        "sampling temperature because that route does not accept one."
+        if plan_calls
+        else ""
     )
     # One phrase per job, not one per task name: both screeners do the same
     # job, and listing it twice reads as though it happened twice.
@@ -128,7 +146,8 @@ def ai_use_statement(project) -> str:
         "Artificial intelligence was used in the conduct of this review. "
         f"The model(s) used were: {described}. "
         f"Calls were made between {first} and {last}, "
-        f"{total_calls} in total, at an estimated cost of ${cost:.2f}. "
+        f"{total_calls} in total, at an estimated cost of ${cost:.2f}."
+        f"{plan_sentence} "
         f"The model was used for: {tasks}. "
         "Every model output was recorded with the model name and version, a "
         "hash of the prompt, a hash of the input, the output itself and a "

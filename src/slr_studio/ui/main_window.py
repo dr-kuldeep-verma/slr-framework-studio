@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from .. import __app_name__, __author__, __source_url__, __version__
 from ..core.project import Project, ProjectError
+from .scrolling import make_scrollable
 from .pages import (
     DedupPage,
     ExportPage,
@@ -90,6 +91,7 @@ class NewProjectDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        make_scrollable(self)
 
     def _browse(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Choose a project folder")

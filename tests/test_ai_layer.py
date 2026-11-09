@@ -225,11 +225,15 @@ class TestCost:
 
 
 class TestProviderRegistry:
-    def test_the_three_backends_are_registered(self):
-        assert set(PROVIDERS) == {"anthropic", "openai_compatible", "ollama"}
+    def test_the_four_backends_are_registered(self):
+        assert set(PROVIDERS) == {
+            "anthropic", "openai_compatible", "ollama", "chatgpt_subscription"
+        }
 
-    def test_anthropic_is_the_default_choice(self):
+    def test_only_the_pay_per_use_backends_need_a_key(self):
         assert PROVIDERS["anthropic"].needs_key is True
+        assert PROVIDERS["ollama"].needs_key is False
+        assert PROVIDERS["chatgpt_subscription"].needs_key is False
 
     def test_a_local_model_is_marked_as_keeping_data_on_the_machine(self):
         assert PROVIDERS["ollama"].sends_data_off_device is False
@@ -248,10 +252,33 @@ class TestProviderRegistry:
 
 
 class TestSettings:
-    def test_settings_default_to_anthropic(self, project):
+    def test_settings_default_to_a_free_local_model_without_a_paid_account(
+        self, project, monkeypatch
+    ):
+        from slr_studio.ai import keys
+
+        monkeypatch.setattr(keys, "has_key", lambda provider: False)
+        monkeypatch.setattr(
+            "slr_studio.ai.chatgpt.ChatGPTSession.signed_in", lambda self: False
+        )
         settings = load_settings(project)
-        assert settings.provider == "anthropic"
+        assert settings.provider == "ollama"
         assert settings.resolved_model()
+
+    def test_settings_default_to_anthropic_when_its_key_is_stored(self, project, monkeypatch):
+        from slr_studio.ai import keys
+
+        monkeypatch.setattr(keys, "has_key", lambda provider: provider == "anthropic")
+        assert load_settings(project).provider == "anthropic"
+
+    def test_settings_default_to_the_chatgpt_plan_when_signed_in(self, project, monkeypatch):
+        from slr_studio.ai import keys
+
+        monkeypatch.setattr(keys, "has_key", lambda provider: False)
+        monkeypatch.setattr(
+            "slr_studio.ai.chatgpt.ChatGPTSession.signed_in", lambda self: True
+        )
+        assert load_settings(project).provider == "chatgpt_subscription"
 
     def test_settings_round_trip_through_the_project(self, project):
         save_settings(project, ModelSettings(provider="ollama", model="llama3.1:8b",
