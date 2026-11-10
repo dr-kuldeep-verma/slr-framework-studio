@@ -1229,6 +1229,11 @@ class ScreeningEngine:
                 "An exclusion needs a code, so the PRISMA diagram can report "
                 "why the record was excluded."
             )
+        if decision == "exclude" and exclusion_code == "Other" and not reason.strip():
+            raise ScreeningError(
+                "An exclusion for another reason needs the reason written down: "
+                "it is what the screening log reports for it."
+            )
         actor = actor or self.audit.actor
         previous = self.db.query_one(
             "SELECT decision, exclusion_code, source FROM screening_status "

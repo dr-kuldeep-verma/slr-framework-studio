@@ -94,13 +94,37 @@ class TestRetrievePage:
         text = " ".join(label.text() for label in page.findChildren(QLabel))
         assert "never downloads from a paywalled site" in text
 
-    def test_the_lookup_button_needs_an_email_address(self, retrieve, window):
+    def test_without_an_email_the_lookup_asks_for_one_and_saves_it(
+        self, retrieve, window, monkeypatch
+    ):
+        # The button used to sit greyed out, with the reason in small print.
+        from PySide6.QtWidgets import QInputDialog
+
         _, page = retrieve
-        assert page.lookup_button.isEnabled() is True
         window.project.update_info(contact_email="")
         page.refresh()
-        assert page.lookup_button.isEnabled() is False
-        assert "add a contact email" in page.status_label.text()
+        assert page.lookup_button.isEnabled() is True
+        assert "will ask for" in page.status_label.text()
+        asked = []
+        monkeypatch.setattr(QInputDialog, "getText", staticmethod(
+            lambda parent, title, label, *a, **k: asked.append(label) or ("me@example.org", True)))
+        started = []
+        monkeypatch.setattr(page, "_start", lambda *a, **k: started.append(k))
+        page._lookup()
+        assert asked and "Only the records' DOIs and this email" in asked[0]
+        assert window.project.info()["contact_email"] == "me@example.org"
+        assert started
+
+    def test_cancelling_the_email_question_looks_nothing_up(self, retrieve, window, monkeypatch):
+        from PySide6.QtWidgets import QInputDialog
+
+        _, page = retrieve
+        window.project.update_info(contact_email="")
+        monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("", False)))
+        started = []
+        monkeypatch.setattr(page, "_start", lambda *a, **k: started.append(k))
+        page._lookup()
+        assert not started and window.project.info()["contact_email"] == ""
 
     def test_dropping_a_pdf_attaches_and_reads_it(self, retrieve, qt_app, fixtures):
         window, page = retrieve

@@ -254,6 +254,25 @@ class RetrievePage(StagePage):
         if self.project is None:
             return
         email = (self.project.info().get("contact_email") or "").strip()
+        if not email:
+            # Asked for here, where it is needed, rather than leaving the
+            # button greyed out with the reason in small print elsewhere.
+            email, ok = QInputDialog.getText(
+                self, "Email for Unpaywall",
+                "Unpaywall, the free service that finds legal open-access "
+                "copies, asks everyone who uses it for a contact email.\n\n"
+                "Only the records' DOIs and this email are sent to Unpaywall; "
+                "no titles, abstracts or decisions. The email is saved with "
+                "this review.\n\nYour email:",
+            )
+            email = (email or "").strip()
+            if not ok or not email:
+                return
+            if "@" not in email or "." not in email.split("@")[-1]:
+                QMessageBox.warning(self, "Not an email address",
+                                    f"{email!r} does not look like an email address.")
+                return
+            self.project.update_info(contact_email=email)
         try:
             client = UnpaywallClient(email)
         except UnpaywallError as exc:
@@ -424,7 +443,8 @@ class RetrievePage(StagePage):
         service = self._service()
         summary = service.summary()
         email = summary.get("contact_email") or ""
-        self.lookup_button.setEnabled(bool(email))
+        # Always available: without an email, pressing it asks for one.
+        self.lookup_button.setEnabled(True)
         self.status_label.setText(
             f"{summary.get('n_sought', 0)} report(s) sought · "
             f"{summary.get('n_retrieved', 0)} retrieved · "
@@ -432,8 +452,8 @@ class RetrievePage(StagePage):
             f"{summary.get('n_abstract_only', 0)} abstract only · "
             f"{summary.get('n_pending', 0)} still to find · "
             f"{summary.get('n_unmatched_pdfs', 0)} file(s) to match"
-            + ("" if email else "  —  add a contact email on the Project page to "
-                               "look up open-access copies")
+            + ("" if email else "  —  Find open-access copies will ask for "
+                               "the contact email Unpaywall requires")
         )
 
         self._rows = service.retrieval_list()

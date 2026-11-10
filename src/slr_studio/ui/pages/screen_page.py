@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QSplitter,
     QTabWidget,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -52,6 +53,62 @@ _REASON_LABELS = {
     "quote_failed": "Quotation not found",
     "revisit": "You left it unclear",
 }
+
+
+OTHER_CODE = "Other"
+
+
+class CriteriaPanel(QWidget):
+    """The review's inclusion criteria and exclusion codes, while screening.
+
+    Deciding a record means checking it against the protocol, so the protocol
+    is on screen rather than in another window. It can be folded away.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        self.toggle = QToolButton()
+        self.toggle.setText("Eligibility criteria")
+        self.toggle.setCheckable(True)
+        self.toggle.setChecked(True)
+        self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setArrowType(Qt.ArrowType.DownArrow)
+        self.toggle.toggled.connect(self._toggled)
+        layout.addWidget(self.toggle)
+        self.view = QTextBrowser()
+        self.view.setMaximumHeight(170)
+        layout.addWidget(self.view)
+
+    def _toggled(self, shown: bool) -> None:
+        self.view.setVisible(shown)
+        self.toggle.setArrowType(Qt.ArrowType.DownArrow if shown else Qt.ArrowType.RightArrow)
+
+    def show_for(self, project) -> None:
+        if project is None:
+            self.view.clear()
+            return
+        from html import escape
+
+        info = project.info()
+        inclusion = [line.strip() for line in (info.get("inclusion_criteria") or "").splitlines()
+                     if line.strip()]
+        codes = project.exclusion_codes()
+        parts = ["<b>Include</b> if it meets all of:<ul style='margin-top:2px'>"]
+        parts += [f"<li>{escape(line)}</li>" for line in inclusion] or ["<li>(not stated)</li>"]
+        parts.append("</ul><b>Exclude</b> with the <i>first</i> code it fails, in this order:"
+                     "<ul style='margin-top:2px'>")
+        for code in codes:
+            detail = code.get("definition") or ""
+            parts.append(
+                f"<li><b>{escape(code['code'])}</b> {escape(code['label'])}"
+                + (f" — <span style='color:#5b6677'>{escape(detail)}</span>" if detail else "")
+                + "</li>"
+            )
+        parts.append(f"<li><b>{OTHER_CODE}</b> — any other reason; say what it is.</li></ul>")
+        self.view.setHtml("".join(parts))
 
 
 class ScreenPage(StagePage):
@@ -183,6 +240,8 @@ class ScreenPage(StagePage):
         self.record_view = QTextBrowser()
         right_layout.addWidget(self.record_view, 3)
 
+        self.criteria_panel = CriteriaPanel()
+        right_layout.addWidget(self.criteria_panel)
         right_layout.addWidget(section_label("What each reviewer said"))
         self.decisions_table = SimpleTable(
             ["Reviewer", "Decision", "Code", "Reason", "Quotation"],
@@ -264,6 +323,8 @@ class ScreenPage(StagePage):
         right_layout.setContentsMargins(12, 0, 0, 0)
         self.pilot_view = QTextBrowser()
         right_layout.addWidget(self.pilot_view, 1)
+        self.pilot_criteria = CriteriaPanel()
+        right_layout.addWidget(self.pilot_criteria)
 
         label_row = QHBoxLayout()
         label_row.addWidget(QLabel("Your judgement:"))
@@ -541,7 +602,8 @@ class ScreenPage(StagePage):
             # The code with what it means: "E4" alone asked the reviewer to
             # remember eight definitions.
             codes = self.project.exclusion_codes()
-            choices = [f"{c['code']} — {c['label']}" for c in codes]
+            choices = [f"{c['code']} — {c['label']}" for c in codes] + [
+                f"{OTHER_CODE} — any other reason"]
             choice, ok = QInputDialog.getItem(
                 self, "Which criterion does it fail?",
                 "First exclusion code the record fails (checked in this order):",
@@ -549,7 +611,8 @@ class ScreenPage(StagePage):
             )
             if not ok:
                 return
-            code = codes[choices.index(choice)]["code"]
+            index = choices.index(choice)
+            code = codes[index]["code"] if index < len(codes) else OTHER_CODE
         self._engine().record_pilot_label(record["id"], decision, exclusion_code=code)
         self.refresh()
         if row + 1 < self.pilot_list.count():
@@ -637,13 +700,26 @@ class ScreenPage(StagePage):
         item = self._queue[row]
         code = str(self.code_combo.currentData() or "")
         reason = self.note_edit.text().strip()
+        if decision == "exclude" and code == OTHER_CODE and not reason:
+            reason, ok = QInputDialog.getText(
+                self, "Why is it excluded?",
+                "'Other' needs the reason, in a few words. It is reported in "
+                "the screening log.",
+            )
+            reason = (reason or "").strip()
+            if not ok or not reason:
+                return
         if decision == "unclear":
             # Unclear has to be about something: which criterion can the
             # abstract not settle? A record that clearly fails one is an
             # exclusion, not an unclear.
             codes = self.project.exclusion_codes()
-            choices = [f"{c['code']} — {c['label']}" for c in codes
-                       if not c["label"].lower().startswith("full text")]
+            no_abstract = "No abstract, or too short to judge"
+            other = "Other — say what in a few words"
+            choices = [no_abstract] + [
+                f"{c['code']} — {c['label']}" for c in codes
+                if not c["label"].lower().startswith("full text")
+            ] + [other]
             choice, ok = QInputDialog.getItem(
                 self, "What can the abstract not settle?",
                 "Keep it unclear only if the abstract cannot tell you this. "
@@ -652,7 +728,19 @@ class ScreenPage(StagePage):
             )
             if not ok:
                 return
-            reason = f"Abstract does not settle {choice}" + (f"; {reason}" if reason else "")
+            if choice == other:
+                what, ok = QInputDialog.getText(
+                    self, "What is unclear?", "In a few words, what cannot be judged?",
+                    text=reason,
+                )
+                what = (what or "").strip()
+                if not ok or not what:
+                    return
+                reason = f"Unclear: {what}"
+            elif choice == no_abstract:
+                reason = "No abstract, or too short to judge" + (f"; {reason}" if reason else "")
+            else:
+                reason = f"Abstract does not settle {choice}" + (f"; {reason}" if reason else "")
         try:
             self._engine().resolve(
                 item["record_id"], decision,
@@ -687,10 +775,13 @@ class ScreenPage(StagePage):
             self.status_label.setText("")
             return
 
+        self.criteria_panel.show_for(self.project)
+        self.pilot_criteria.show_for(self.project)
         self.code_combo.clear()
         self.code_combo.addItem("— none —", "")
         for code in self.project.exclusion_codes():
             self.code_combo.addItem(f"{code['code']} {code['label']}", code["code"])
+        self.code_combo.addItem("Other — give the reason", OTHER_CODE)
 
         try:
             engine = self._engine()

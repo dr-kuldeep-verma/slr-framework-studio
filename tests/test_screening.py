@@ -717,3 +717,11 @@ def test_the_ai_use_statement_reports_the_handover(ready):
     statement = ai_use_statement(ready)
     assert "At the reviewer's request, the model re-read" in statement
     assert "did not check these individually" in statement
+
+
+def test_an_exclusion_for_another_reason_needs_the_reason(ready):
+    engine = make_engine(ready, unclear_goes_to_fulltext=False)
+    record_id = ready.db.scalar("SELECT id FROM record WHERE active = 1 LIMIT 1")
+    with pytest.raises(ScreeningError, match="reason written down"):
+        engine.resolve(record_id, "exclude", exclusion_code="Other", reason="")
+    engine.resolve(record_id, "exclude", exclusion_code="Other", reason="retracted")
