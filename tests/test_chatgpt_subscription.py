@@ -500,6 +500,26 @@ class TestProvider:
         assert "text" not in openai.streams[1]["json"]
         assert provider.json_mode is False
 
+    def test_overloaded_servers_are_waited_out_not_treated_as_a_refusal(self, openai, ring, clock):
+        # What stopped the first full screening run, reported inside the stream.
+        provider = self.provider(openai, ring, clock)
+        openai.stream_replies.append(Response(lines=sse(
+            {"type": "response.failed", "response": {"error": {
+                "code": "server_error",
+                "message": "Our servers are currently overloaded. Please try again later."}}},
+        )))
+        with pytest.raises(ProviderError, match="busy") as caught:
+            provider.complete(system="s", user="u")
+        assert caught.value.retryable
+
+    def test_overloaded_without_a_code_is_still_retryable(self, openai, ring, clock):
+        provider = self.provider(openai, ring, clock)
+        openai.stream_replies.append(Response(400, {"error": {
+            "message": "Our servers are currently overloaded. Please try again later."}}))
+        with pytest.raises(ProviderError) as caught:
+            provider.complete(system="s", user="u")
+        assert caught.value.retryable
+
     def test_an_interrupted_stream_is_retryable(self, openai, ring, clock):
         provider = self.provider(openai, ring, clock)
         openai.stream_replies.append(Response(lines=sse(

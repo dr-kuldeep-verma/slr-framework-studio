@@ -87,6 +87,10 @@ judged against.
 
 ### Step 4 — Work the stages in order
 
+A **Next step** bar under the page title always says what to do next on
+your review, with a button that goes there and **Show me how** for short
+instructions. **Help → What do I do next?** (F1) shows the same.
+
 The navigator down the left is the review. Each stage opens when the one
 before it has produced what it needs.
 

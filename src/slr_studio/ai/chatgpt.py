@@ -659,6 +659,22 @@ def _error_from_body(body: Any) -> tuple[str, str, str]:
     return "", "", ""
 
 
+#: Error codes and wording meaning "busy, try later" rather than "no". The
+#: first full screening run stopped on "Our servers are currently overloaded.
+#: Please try again later.", reported inside the stream and so treated as a
+#: refusal.
+_BUSY_CODES = {
+    "server_is_overloaded",
+    "server_error",
+    "internal_error",
+    "service_unavailable",
+    "overloaded",
+    "slow_down",
+    "timeout",
+}
+_BUSY_WORDS = ("overloaded", "try again later", "temporarily unavailable", "capacity")
+
+
 def _raise_for(status: int, code: str, message: str, param: str):
     """Map OpenAI's documented plan-use errors onto the shared error types."""
     if code == "subscription_sharing_usage_limit_exceeded":
@@ -688,6 +704,15 @@ def _raise_for(status: int, code: str, message: str, param: str):
         error.retryable = False
         error.param = param  # type: ignore[attr-defined]
         raise error
+    lowered = f"{code} {message}".lower()
+    if code in _BUSY_CODES or any(word in lowered for word in _BUSY_WORDS):
+        # OpenAI is busy, not refusing: wait and ask again. If it stays busy,
+        # the run pauses and keeps what it has.
+        raise ProviderError(
+            "ChatGPT's servers are busy just now"
+            + (f" ({message})" if message else "")
+            + ". The app waits and tries again."
+        )
     if status == 401:
         raise AuthenticationError(
             "ChatGPT did not accept the sign-in. Sign in again under "
@@ -757,9 +782,12 @@ class ChatGPTSubscriptionProvider(Provider):
         # max_tokens and temperature are accepted for the interface and not
         # sent: the plan route refuses both.
         if not self.model:
-            raise ProviderError(
-                "No ChatGPT model is chosen. Pick one under Tools → Model settings."
+            error = ProviderError(
+                "No ChatGPT model is chosen for this review. Pick one under "
+                "Tools → Model settings."
             )
+            error.retryable = False  # waiting will not choose one
+            raise error
         refreshed = False
         for _ in range(3):
             try:

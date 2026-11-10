@@ -221,6 +221,26 @@ class ScreeningEngine:
     # -- runs --------------------------------------------------------------
 
     def _start_run(self, kind: str, n_records: int, protocol_version: int | None) -> int:
+        # A run still marked "running" when a new one starts did not finish:
+        # the program stopped under it. Mark it failed with a note saying so,
+        # rather than leave it looking live in the screening log. Its
+        # decisions are kept as they are.
+        for stale in self.db.query("SELECT id FROM screening_run WHERE status = 'running'"):
+            self.db.execute(
+                "UPDATE screening_run SET status = 'failed', finished_at = ?, "
+                "note = ? WHERE id = ?",
+                (
+                    utc_now(),
+                    "Interrupted: the program stopped during this run; found "
+                    "unfinished when the next run started.",
+                    stale["id"],
+                ),
+            )
+            self.project.audit.log(
+                "screen", "run_interrupted", entity="screening_run",
+                entity_id=stale["id"],
+                detail={"note": "Found unfinished when a new run started."},
+            )
         return self.db.insert(
             "screening_run",
             {
@@ -250,6 +270,20 @@ class ScreeningEngine:
         outcome.n_calls = self.client.n_calls - baseline[0]
         outcome.n_cached = self.client.n_cached - baseline[1]
         outcome.cost_usd = round(self.client.spent_usd - baseline[2], 6)
+
+    def _close_failed_run(self, run_id: int, outcome: RunOutcome, exc: Exception) -> None:
+        """Record a run stopped by an error that retrying will not fix."""
+        outcome.status = "failed"
+        self._tally(outcome)
+        self._finish_run(run_id, outcome)
+        self.db.execute(
+            "UPDATE screening_run SET note = ? WHERE id = ?",
+            (f"Stopped by an error: {exc}", run_id),
+        )
+        self.audit.log(
+            "screen", "run_failed", entity="screening_run", entity_id=run_id,
+            detail={"error": str(exc), "n_done": outcome.n_done},
+        )
 
     def _finish_run(self, run_id: int, outcome: RunOutcome) -> None:
         self.db.execute(
@@ -594,7 +628,10 @@ class ScreeningEngine:
                 break
             except ProviderError as exc:
                 if not exc.retryable:
-                    raise  # a rejected key or request: waiting will not help
+                    # A rejected key or request: waiting will not help. Close
+                    # the run first, so it is not left marked as running.
+                    self._close_failed_run(run_id, outcome, exc)
+                    raise
                 outcome.status = "paused"
                 outcome.messages.append(
                     f"The provider kept failing ({exc}) after {outcome.n_done} "
@@ -931,6 +968,34 @@ class ScreeningEngine:
             "ORDER BY CASE q.reason WHEN 'conflict' THEN 0 WHEN 'unclear' THEN 1 "
             "                       WHEN 'qc_rescue' THEN 2 ELSE 3 END, q.id "
             "LIMIT ?",
+            (limit,),
+        )
+        out = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["authors"] = json.loads(item.get("authors") or "[]")
+            except ValueError:
+                item["authors"] = []
+            item["decisions"] = self.decisions_for(item["record_id"])
+            out.append(item)
+        return out
+
+    def revisit_list(self, limit: int = 2000) -> list[dict[str, Any]]:
+        """Records the reviewer last left as "still unclear", to decide again.
+
+        Deciding again replaces the current decision and logs the change as
+        an override, so the earlier decision stays in the audit log.
+        """
+        rows = self.db.query(
+            "SELECT s.record_id, 'revisit' AS reason, '' AS detail, "
+            "       r.title, r.abstract, r.year, r.journal, r.doc_type, "
+            "       r.authors, r.source_database, r.doi, "
+            "       s.decision AS current_decision, s.exclusion_code AS current_code, "
+            "       s.source AS decided_how "
+            "FROM screening_status s JOIN record r ON r.id = s.record_id "
+            "WHERE s.source = 'human' AND s.decision = 'unclear' "
+            "ORDER BY s.record_id LIMIT ?",
             (limit,),
         )
         out = []

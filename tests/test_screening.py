@@ -11,6 +11,7 @@ from slr_studio.screening import ScreeningEngine, ScreeningSettings
 from slr_studio.screening.engine import ScreeningError
 from slr_studio.screening.prompts import (
     PERSONAS,
+    PROMPT_VERSION,
     adjudicator_system,
     render_record,
     screener_system,
@@ -174,6 +175,37 @@ def make_engine(project, provider=None, **settings):
 
 
 class TestGates:
+    def test_a_run_the_program_died_under_is_marked_interrupted(self, ready):
+        engine = make_engine(ready)
+        engine.waive_pilot("Testing an interrupted run")
+        crashed = engine._start_run("full", 5, 1)  # what a crash leaves behind
+        engine.run_full()
+        row = ready.db.query_one(
+            "SELECT status, finished_at, note FROM screening_run WHERE id = ?", (crashed,)
+        )
+        assert row["status"] == "failed" and row["finished_at"]
+        assert row["note"].startswith("Interrupted")
+        assert any(e.action == "run_interrupted" for e in ready.audit.entries())
+
+    def test_a_run_stopped_by_a_hard_error_is_not_left_running(self, ready):
+        from slr_studio.ai.base import ProviderError
+        from slr_studio.ai.providers import Provider
+
+        class Refusing(Provider):
+            name = "refusing"
+
+            def complete(self, **kwargs):
+                error = ProviderError("request rejected")
+                error.retryable = False
+                raise error
+
+        engine = make_engine(ready, provider=Refusing("m"))
+        engine.waive_pilot("Testing a hard failure")
+        with pytest.raises(ProviderError):
+            engine.run_full()
+        row = ready.db.query_one("SELECT status, note FROM screening_run ORDER BY id DESC")
+        assert row["status"] == "failed" and "request rejected" in row["note"]
+
     def test_screening_without_a_locked_protocol_is_refused(self, imported_project):
         engine = make_engine(imported_project)
         with pytest.raises(ScreeningError, match="has not been locked"):
@@ -326,7 +358,7 @@ class TestFullRun:
         row = project.db.query_one(
             "SELECT * FROM screening_run WHERE id = ?", (outcome.run_id,)
         )
-        assert row["model"] and row["prompt_version"] == "screen-1.0"
+        assert row["model"] and row["prompt_version"] == PROMPT_VERSION
         assert row["protocol_version"] is not None
         assert row["status"] == "finished"
 
@@ -538,3 +570,26 @@ class TestPauseAndResume:
         outcome = engine.run_full(actor="human:test")
         assert outcome.status == "paused"
         assert any("limit" in m for m in outcome.messages)
+
+
+class TestRevisitingUnclearDecisions:
+    def test_records_left_unclear_by_the_reviewer_can_be_decided_again(self, ready):
+        engine = make_engine(ready)
+        engine.waive_pilot("Testing revisits")
+        engine.run_full()
+        ids = [r["record_id"] for r in ready.db.query("SELECT record_id FROM screening_status LIMIT 3")]
+        for record_id in ids:
+            engine.resolve(record_id, "unclear", reason="first pass")
+        assert [r["record_id"] for r in engine.revisit_list()] == sorted(ids)
+
+        engine.resolve(ids[0], "exclude", exclusion_code="E1", reason="read it properly")
+        assert [r["record_id"] for r in engine.revisit_list()] == sorted(ids[1:])
+        # The new decision replaces the current one; the earlier one stays in
+        # the audit log, recorded as an override with its previous value.
+        current = ready.db.query_one(
+            "SELECT decision FROM screening_status WHERE record_id = ?", (ids[0],)
+        )
+        assert current["decision"] == "exclude"
+        overrides = [e for e in ready.audit.entries()
+                     if e.action == "human_override" and str(e.entity_id) == str(ids[0])]
+        assert overrides and "unclear" in str(overrides[-1].detail)

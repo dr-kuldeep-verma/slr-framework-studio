@@ -587,6 +587,12 @@ class ModelSettingsDialog(QDialog):
         self.sign_in_button.setText("Sign in again" if signed_in else "Sign in with ChatGPT")
         self.sign_out_button.setVisible(signed_in)
         self.plan_models_button.setEnabled(signed_in)
+        # A review that has never had a model chosen: fetch the list now, so
+        # Save does not store the subscription with no model.
+        if signed_in and self.plan_model_combo.count() == 0 and not (
+            self._task is not None and self._task.isRunning()
+        ):
+            self._load_plan_models()
 
     def _sign_in(self) -> None:
         if self._task is not None and self._task.isRunning():
@@ -761,13 +767,21 @@ class ModelSettingsDialog(QDialog):
         )
 
     def accept(self) -> None:
-        if self.choice() == CHOICE_PLAN and not self._session().signed_in() and not self.offline_check.isChecked():
-            QMessageBox.information(
-                self, "Sign in first",
-                "To use your ChatGPT subscription, sign in with ChatGPT first, "
-                "or choose another option.",
-            )
-            return
+        if self.choice() == CHOICE_PLAN and not self.offline_check.isChecked():
+            if not self._session().signed_in():
+                QMessageBox.information(
+                    self, "Sign in first",
+                    "To use your ChatGPT subscription, sign in with ChatGPT first, "
+                    "or choose another option.",
+                )
+                return
+            if not self._plan_model():
+                QMessageBox.information(
+                    self, "Choose a model",
+                    "Choose which ChatGPT model reads the records. Press "
+                    "Refresh list if the list is empty.",
+                )
+                return
         self._save_key()
         super().accept()
 

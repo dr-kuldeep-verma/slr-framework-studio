@@ -126,6 +126,13 @@ QStatusBar::item {{ border: none; }}
 }}
 #headerSubtitle {{ color: {muted}; }}
 
+/* The next step for this review, under the header on every page. */
+#nextStepBar {{
+    background: {accent_wash};
+    border-bottom: 1px solid {border};
+}}
+#nextStepText {{ color: {text}; }}
+
 #pageScroll, #pageScroll > QWidget > QWidget, #pageContent {{
     background: {window};
 }}

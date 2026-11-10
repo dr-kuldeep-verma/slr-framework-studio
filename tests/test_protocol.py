@@ -51,6 +51,19 @@ class TestDrafting:
         filled.update_info(framework_type="SPIDER")
         assert "Phenomenon of interest" in filled.protocol.draft()
 
+    def test_a_built_in_framework_outside_the_four_names_its_own_stages(self, filled):
+        filled.update_info(framework_type="CIMO")
+        text = filled.protocol.draft()
+        assert "organised against Context, Intervention, Mechanism and Outcome." in text
+        assert "Population" not in text.split("## Framework")[1].split("##")[0]
+
+    def test_a_reviewers_own_framework_names_its_own_stages(self, filled):
+        filled.define_framework("ADO", ["antecedents", "decisions", "outcomes"])
+        filled.update_info(framework_type="ADO")
+        text = filled.protocol.draft()
+        assert "## Framework: ADO" in text
+        assert "organised against Antecedents, Decisions and Outcomes." in text
+
     def test_seed_studies_are_listed(self, filled):
         from slr_studio.importers.service import ImportService
 

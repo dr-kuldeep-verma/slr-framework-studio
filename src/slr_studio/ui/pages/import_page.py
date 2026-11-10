@@ -110,6 +110,9 @@ class ImportPage(StagePage):
             f"Imported {total} record(s) from {len(summaries)} file(s)."
         )
         if failures:
+            from ...errorlog import log_path
+
+            failures = list(failures) + [("Details", f"Written to {log_path()}")]
             QMessageBox.warning(
                 self,
                 "Some files were not imported",

@@ -26,7 +26,20 @@ class Task(QThread):
         super().__init__()
         self._fn = fn
         self._args = args
+        # A progress callback usually updates a progress bar. Called from
+        # this worker thread it would touch a widget off the GUI thread,
+        # which Qt does not allow: the full screening run crashed inside
+        # Qt6Gui.dll that way. The work is given the signal's emit instead,
+        # and the signal delivers each update on the GUI thread, where the
+        # task object was created.
+        callback = kwargs.get("on_progress")
+        if callable(callback):
+            self.progressed.connect(callback)
+            kwargs["on_progress"] = self._report
         self._kwargs = kwargs
+
+    def _report(self, done: int, total: int, message: str = "") -> None:
+        self.progressed.emit(int(done), int(total), str(message))
 
     def run(self) -> None:
         try:
@@ -34,6 +47,9 @@ class Task(QThread):
         except Exception as exc:
             # The traceback goes to the log; the reviewer sees the message.
             traceback.print_exc()
+            from ..errorlog import log_exception
+
+            log_exception(exc, where=f"background task {getattr(self._fn, '__qualname__', '')}")
             self.failed.emit(str(exc))
         else:
             self.succeeded.emit(result)

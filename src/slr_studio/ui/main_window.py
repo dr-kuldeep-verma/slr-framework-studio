@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -149,6 +150,26 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.header)
         right_layout.addWidget(header_bar)
 
+        # "What do I do next?" answered on every page: the next step for this
+        # review, a button that goes to its page, and how to do it.
+        self.next_bar = QFrame()
+        self.next_bar.setObjectName("nextStepBar")
+        next_layout = QHBoxLayout(self.next_bar)
+        next_layout.setContentsMargins(28, 8, 28, 8)
+        self.next_label = QLabel()
+        self.next_label.setObjectName("nextStepText")
+        self.next_label.setWordWrap(True)
+        self.next_label.setTextFormat(Qt.TextFormat.RichText)
+        next_layout.addWidget(self.next_label, 1)
+        self.next_how = QPushButton("Show me how")
+        self.next_how.clicked.connect(self.show_next_step)
+        next_layout.addWidget(self.next_how)
+        self.next_go = QPushButton()
+        self.next_go.clicked.connect(self._go_to_next_step)
+        next_layout.addWidget(self.next_go)
+        self._next = None
+        right_layout.addWidget(self.next_bar)
+
         self.stack = QStackedWidget()
         right_layout.addWidget(self.stack, 1)
         layout.addWidget(right, 1)
@@ -227,6 +248,10 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(demo_action)
 
         help_menu = self.menuBar().addMenu("&Help")
+        next_action = QAction("&What do I do next?", self)
+        next_action.setShortcut(QKeySequence("F1"))
+        next_action.triggered.connect(self.show_next_step)
+        help_menu.addAction(next_action)
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
@@ -271,8 +296,26 @@ class MainWindow(QMainWindow):
         if self.project is not None and self.project is not project:
             self.project.close()
         self.project = project
+        # Every page gets the new review even if one of them fails to
+        # refresh. Stopping at the first failure left the pages after it
+        # holding the review just closed, and the next action on one of them
+        # failed with "Cannot operate on a closed database".
+        problems: list[str] = []
         for page in self.pages:
-            page.set_project(project)
+            try:
+                page.set_project(project)
+            except Exception as exc:
+                page.project = project
+                problems.append(f"{page.title}: {exc}")
+                from ..errorlog import log_exception
+
+                log_exception(exc, where=f"opening review, page {page.title}")
+        if problems:
+            QMessageBox.warning(
+                self, "Part of the review could not be shown",
+                "The review is open, but these pages could not be refreshed:\n\n"
+                + "\n".join(problems),
+            )
         if project is None:
             self.setWindowTitle(__app_name__)
             self.counts_label.setText("No project open")
@@ -280,12 +323,80 @@ class MainWindow(QMainWindow):
             info = project.info()
             self.setWindowTitle(f"{info['title']} — {__app_name__}")
         self._refresh_counts()
+        self._refresh_next_step()
         self._change_page(self.nav.currentRow())
 
     def _refresh_all(self) -> None:
         for page in self.pages:
             page.refresh()
         self._refresh_counts()
+        self._refresh_next_step()
+
+    def _refresh_next_step(self) -> None:
+        from ..core.next_step import next_step
+
+        if self.project is None:
+            self._next = None
+            self.next_label.setText(
+                "<b>Next step:</b> open a review (File → Open review…) or "
+                "start one (File → New review…)."
+            )
+            self.next_go.setVisible(False)
+            self.next_how.setVisible(False)
+            return
+        try:
+            step = next_step(self.project)
+        except Exception as exc:  # the guide must never break the window
+            from ..errorlog import log_exception
+
+            log_exception(exc, where="working out the next step")
+            self.next_bar.setVisible(False)
+            return
+        self._next = step
+        self.next_bar.setVisible(True)
+        progress = f" <span style='color:#5b6677'>({step.progress})</span>" if step.progress else ""
+        prefix = "Done:" if step.done else "Next step:"
+        self.next_label.setText(f"<b>{prefix}</b> {step.headline}{progress}")
+        self.next_how.setVisible(bool(step.steps or step.why))
+        current = self.pages[self.nav.currentRow()].title if self.nav.currentRow() >= 0 else ""
+        self.next_go.setText(f"Go to {step.page}")
+        self.next_go.setVisible(step.page != current)
+
+    def _go_to_next_step(self) -> None:
+        if self._next is None:
+            return
+        for index, page in enumerate(self.pages):
+            if page.title == self._next.page:
+                self.nav.setCurrentRow(index)
+                if self._next.focus and hasattr(page, "focus_on"):
+                    page.focus_on(self._next.focus)
+                return
+
+    def show_next_step(self) -> None:
+        """The next step's instructions, in a window of their own."""
+        self._refresh_next_step()
+        if self._next is None:
+            QMessageBox.information(
+                self, "What to do next",
+                "Open a review with File → Open review…, or start one with "
+                "File → New review….",
+            )
+            return
+        step = self._next
+        box = QMessageBox(self)
+        box.setWindowTitle("What to do next")
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setText(f"<b>{step.headline}</b>" + (f" ({step.progress})" if step.progress else ""))
+        body = ([step.why, ""] if step.why else []) + [
+            f"{i}. {line}" for i, line in enumerate(step.steps, 1)
+        ]
+        body.append(f"\nThis happens on the {step.page} page.")
+        box.setInformativeText("\n".join(body))
+        go = box.addButton(f"Go to {step.page}", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Close)
+        box.exec()
+        if box.clickedButton() is go:
+            self._go_to_next_step()
 
     def _refresh_counts(self) -> None:
         if self.project is None:
@@ -307,6 +418,8 @@ class MainWindow(QMainWindow):
         self.header.setVisible(bool(page.subtitle))
         page.refresh()
         page.scroll_to_top()
+        if hasattr(self, "next_bar"):
+            self._refresh_next_step()
 
     # -- tools -------------------------------------------------------------
 

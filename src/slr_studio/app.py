@@ -75,6 +75,9 @@ def main(argv: list[str] | None = None) -> int:
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
+    from slr_studio.errorlog import install_excepthook
+
+    install_excepthook()
     app = QApplication(arguments)
     app.setApplicationName(__app_name__)
     app.setOrganizationName("SLR Framework Studio")

@@ -130,20 +130,11 @@ def provider_from_settings(settings: ModelSettings):
     """Build the provider a project is configured to use."""
     if settings.offline:
         return MockProvider()
+    # No network here: pages build a provider every time they refresh. A
+    # ChatGPT review with no model chosen gets a provider that says so when
+    # it is first asked something; Model settings is where the model list is
+    # fetched.
     model = settings.resolved_model()
-    if settings.provider == "chatgpt_subscription" and not model:
-        # No model was picked yet: use the first one the account offers.
-        from .chatgpt import ChatGPTSession
-
-        offered = ChatGPTSession().list_models()
-        if not offered:
-            from .base import ProviderError
-
-            raise ProviderError(
-                "This ChatGPT account offers no models to applications. "
-                "Choose another model under Tools → Model settings."
-            )
-        model = offered[0]["slug"]
     return build_provider(
         settings.provider,
         model,

@@ -50,6 +50,7 @@ _REASON_LABELS = {
     "qc_rescue": "Quality control rescued",
     "random_audit": "Random audit",
     "quote_failed": "Quotation not found",
+    "revisit": "You left it unclear",
 }
 
 
@@ -115,6 +116,7 @@ class ScreenPage(StagePage):
         self._layout.addWidget(self.progress)
 
         tabs = QTabWidget()
+        self.tabs = tabs
         tabs.addTab(self._build_queue_tab(), "Needs your decision")
         tabs.addTab(self._build_pilot_tab(), "Pilot")
         tabs.addTab(self._build_agreement_tab(), "Agreement")
@@ -135,6 +137,26 @@ class ScreenPage(StagePage):
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #5b6677;")
         layout.addWidget(hint)
+
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Show"))
+        self.queue_mode = QComboBox()
+        self.queue_mode.addItem("Records waiting for your decision", "queue")
+        self.queue_mode.addItem("My 'still unclear' decisions, to decide again", "revisit")
+        self.queue_mode.currentIndexChanged.connect(self._mode_changed)
+        mode_row.addWidget(self.queue_mode, 1)
+        layout.addLayout(mode_row)
+        self.revisit_hint = QLabel(
+            "Read each abstract and the screeners' reasons, then decide again. "
+            "Your earlier decision stays in the audit log. Keep "
+            "a record unclear only when the abstract cannot settle it: each "
+            "one kept is a PDF to fetch."
+        )
+        self.revisit_hint.setWordWrap(True)
+        self.revisit_hint.setStyleSheet("color: #5b6677;")
+        self.revisit_hint.setVisible(False)
+        layout.addWidget(self.revisit_hint)
+        self._kept_unclear: set[int] = set()
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.queue_list = QListWidget()
@@ -181,6 +203,22 @@ class ScreenPage(StagePage):
         self.unclear_button.clicked.connect(lambda: self._resolve("unclear"))
         buttons.addWidget(self.unclear_button)
         right_layout.addLayout(buttons)
+        # How many records the reviewer has kept unclear, and a note when
+        # decisions come faster than an abstract can be read.
+        self.unclear_note = QLabel()
+        self.unclear_note.setWordWrap(True)
+        self.unclear_note.setStyleSheet("color: #5b6677;")
+        right_layout.addWidget(self.unclear_note)
+        self.pace_note = QLabel(
+            "These decisions are coming within a few seconds of each other. "
+            "Each one is logged with its time; take the time to read the "
+            "abstract and the screeners' reasons."
+        )
+        self.pace_note.setWordWrap(True)
+        self.pace_note.setStyleSheet("color: #9a4b06;")
+        self.pace_note.setVisible(False)
+        right_layout.addWidget(self.pace_note)
+        self._decision_times: list[float] = []
 
         splitter.addWidget(right)
         splitter.setSizes([300, 760])
@@ -421,7 +459,7 @@ class ScreenPage(StagePage):
         )
 
     def _progress(self, done: int, total: int, message: str) -> None:
-        # Called from the worker thread; setValue is safe to queue.
+        # Runs on the GUI thread: Task delivers progress through a signal.
         self.progress.setMaximum(max(total, 1))
         self.progress.setValue(done)
         self.progress.setFormat(f"{message}  (%p%)")
@@ -449,13 +487,18 @@ class ScreenPage(StagePage):
         record = self._pilot_records[row]
         code = ""
         if decision == "exclude":
-            codes = [c["code"] for c in self.project.exclusion_codes()]
-            code, ok = QInputDialog.getItem(
+            # The code with what it means: "E4" alone asked the reviewer to
+            # remember eight definitions.
+            codes = self.project.exclusion_codes()
+            choices = [f"{c['code']} — {c['label']}" for c in codes]
+            choice, ok = QInputDialog.getItem(
                 self, "Which criterion does it fail?",
-                "First exclusion code the record fails:", codes, 0, False,
+                "First exclusion code the record fails (checked in this order):",
+                choices, 0, False,
             )
             if not ok:
                 return
+            code = codes[choices.index(choice)]["code"]
         self._engine().record_pilot_label(record["id"], decision, exclusion_code=code)
         self.refresh()
         if row + 1 < self.pilot_list.count():
@@ -495,6 +538,22 @@ class ScreenPage(StagePage):
             f"<p style='margin-top:10px'>{abstract}</p>"
         )
 
+    def focus_on(self, part: str) -> None:
+        """Open the tab and list the next-step guide points to."""
+        if part == "pilot":
+            self.tabs.setCurrentIndex(1)
+        elif part in ("queue", "revisit"):
+            self.tabs.setCurrentIndex(0)
+            self.queue_mode.setCurrentIndex(1 if part == "revisit" else 0)
+
+    def _mode(self) -> str:
+        return str(self.queue_mode.currentData() or "queue")
+
+    def _mode_changed(self, *args) -> None:
+        self.revisit_hint.setVisible(self._mode() == "revisit")
+        self._kept_unclear.clear()
+        self.refresh()
+
     def _show_item(self, row: int) -> None:
         if row < 0 or row >= len(self._queue):
             self.record_view.clear()
@@ -526,15 +585,40 @@ class ScreenPage(StagePage):
             return
         item = self._queue[row]
         code = str(self.code_combo.currentData() or "")
+        reason = self.note_edit.text().strip()
+        if decision == "unclear":
+            # Unclear has to be about something: which criterion can the
+            # abstract not settle? A record that clearly fails one is an
+            # exclusion, not an unclear.
+            codes = self.project.exclusion_codes()
+            choices = [f"{c['code']} — {c['label']}" for c in codes
+                       if not c["label"].lower().startswith("full text")]
+            choice, ok = QInputDialog.getItem(
+                self, "What can the abstract not settle?",
+                "Keep it unclear only if the abstract cannot tell you this. "
+                "If it clearly fails a criterion, press Cancel and exclude it.",
+                choices, 0, False,
+            )
+            if not ok:
+                return
+            reason = f"Abstract does not settle {choice}" + (f"; {reason}" if reason else "")
         try:
             self._engine().resolve(
                 item["record_id"], decision,
-                exclusion_code=code, reason=self.note_edit.text().strip(),
+                exclusion_code=code, reason=reason,
             )
         except ScreeningError as exc:
             QMessageBox.warning(self, "Cannot record that", str(exc))
             return
         self.note_edit.clear()
+        import time
+
+        self._decision_times = (self._decision_times + [time.monotonic()])[-4:]
+        gaps = [b - a for a, b in zip(self._decision_times, self._decision_times[1:])]
+        self.pace_note.setVisible(len(gaps) >= 3 and all(g < 6 for g in gaps))
+        if decision == "unclear" and self._mode() == "revisit":
+            # Kept unclear on purpose: drop it from this pass of the list.
+            self._kept_unclear.add(item["record_id"])
         self.status_message.emit(
             f"Record {item['record_id']} recorded as {decision}."
         )
@@ -590,7 +674,24 @@ class ScreenPage(StagePage):
             f"{summary.get('n_awaiting_review', 0)} waiting for you · {pilot_state}"
         )
 
-        self._queue = engine.review_queue()
+        if self._mode() == "revisit":
+            self._queue = [
+                item for item in engine.revisit_list()
+                if item["record_id"] not in self._kept_unclear
+            ]
+        else:
+            self._queue = engine.review_queue()
+        n_revisit = len(engine.revisit_list())
+        self.queue_mode.setItemText(
+            1, f"My 'still unclear' decisions, to decide again ({n_revisit})"
+        )
+        # Before the pilot, the only work on this page is labelling it: open
+        # on that tab rather than on an empty queue.
+        if (
+            locked and not summary["pilot_done"] and not summary["pilot_waived"]
+            and not self._queue and hasattr(self, "tabs")
+        ):
+            self.tabs.setCurrentIndex(1)
         self.queue_list.clear()
         for item in self._queue:
             self.queue_list.addItem(
@@ -599,6 +700,15 @@ class ScreenPage(StagePage):
                     f"{(item.get('title') or '')[:70]}"
                 )
             )
+        n_kept = int(self.project.db.scalar(
+            "SELECT COUNT(*) FROM screening_status WHERE source = 'human' "
+            "AND decision = 'unclear'"
+        ) or 0)
+        self.unclear_note.setText(
+            f"You have kept {n_kept} record{'s' if n_kept != 1 else ''} unclear. "
+            "Each one goes to full text: a PDF to fetch and read."
+            if n_kept else ""
+        )
         has_items = bool(self._queue)
         for button in (self.include_button, self.exclude_button, self.unclear_button):
             button.setEnabled(has_items)

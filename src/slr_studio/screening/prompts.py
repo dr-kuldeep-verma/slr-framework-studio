@@ -33,14 +33,23 @@ __all__ = [
     "adjudication_user",
 ]
 
-PROMPT_VERSION = "screen-1.0"
+#: 1.1 (10 Nov 2026): "unclear" narrowed. In the generative-AI-in-travel case
+#: study, 12% of records came back unclear, many of them clearly off-topic
+#: records that failed an early code. Screeners now exclude on any clearly
+#: failed code first and must name the criterion an unclear answer is about.
+PROMPT_VERSION = "screen-1.1"
 
 _SHARED_RULES = """
 Rules you must follow:
 - Judge only what is in the record below. Do not use outside knowledge about
   the authors, the journal or the study.
-- If the record does not contain enough to decide, answer "unclear". Do not
-  guess.
+- Work through the exclusion codes in order. If the record clearly fails one,
+  exclude with that code, even when other details are not reported: a record
+  that is plainly not about the review's topic is excluded, not unclear.
+- Answer "unclear" only when no code is clearly failed AND the record leaves a
+  specific criterion undecidable (for example, the population is not stated).
+  Name that criterion in your reason. Do not guess, and do not use "unclear"
+  for a detail that eligible studies normally report only in the full text.
 - To exclude, name the FIRST code in the ordered list that the record fails.
 - Quote at most fifteen words from the title or abstract to support your
   answer. Never invent a quotation. If nothing in the record supports your

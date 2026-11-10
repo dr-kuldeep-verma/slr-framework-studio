@@ -213,6 +213,9 @@ class ImportService:
             try:
                 summaries.append(self.import_file(path, allow_reimport=allow_reimport))
             except Exception as exc:
+                from ..errorlog import log_exception
+
+                log_exception(exc, where=f"importing {Path(path).name}")
                 failures.append((Path(path).name, str(exc)))
         return summaries, failures
 

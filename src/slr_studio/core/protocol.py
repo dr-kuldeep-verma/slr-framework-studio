@@ -55,6 +55,26 @@ _FRAMEWORK_HEADINGS = {
 }
 
 
+def _framework_headings(framework: str, stages=None) -> tuple[str, ...]:
+    """The parts a framework's criteria are organised against.
+
+    The four with established wording keep it. Every other framework,
+    built-in or the reviewer's own, is described by its own stages: before
+    this, anything outside the four was described as Population, Concept and
+    Context, so a CIMO or a reviewer-defined protocol misstated its own
+    framework in the document that gets locked and hashed.
+    """
+    if framework in _FRAMEWORK_HEADINGS:
+        return _FRAMEWORK_HEADINGS[framework]
+    if not stages:
+        from .frameworks import BUILT_IN
+
+        stages = BUILT_IN.get(framework, ())
+    if stages:
+        return tuple(str(s)[:1].upper() + str(s)[1:] for s in stages)
+    return _FRAMEWORK_HEADINGS["PCC"]
+
+
 def _bullets(text: str) -> str:
     """Turn a free-text box into a list, leaving prose alone."""
     lines = [line.strip(" -*\t") for line in (text or "").splitlines()]
@@ -159,6 +179,7 @@ def draft_protocol(
     exclusion_codes: list[dict[str, Any]],
     *,
     seeds: list[dict[str, Any]] | None = None,
+    stages: tuple[str, ...] | list[str] | None = None,
 ) -> str:
     """Compose the protocol document from the form.
 
@@ -171,7 +192,7 @@ def draft_protocol(
     Nothing is invented to fill a gap -- an unanswered field says so.
     """
     framework = info.get("framework_type", "PCC")
-    headings = _FRAMEWORK_HEADINGS.get(framework, _FRAMEWORK_HEADINGS["PCC"])
+    headings = _framework_headings(framework, stages)
     questions = info.get("research_questions") or []
     languages = info.get("languages") or []
 
@@ -200,13 +221,15 @@ def draft_protocol(
     else:
         lines.append("_Not yet stated._")
 
+    joined = (
+        headings[0] if len(headings) == 1
+        else ", ".join(headings[:-1]) + f" and {headings[-1]}"
+    )
     lines += [
         "",
         f"## Framework: {framework}",
         "",
-        "The eligibility criteria below are organised against "
-        + ", ".join(headings[:-1])
-        + f" and {headings[-1]}.",
+        f"The eligibility criteria below are organised against {joined}.",
         "",
         "## Inclusion criteria",
         "",
@@ -290,7 +313,8 @@ class ProtocolService:
         """The document the current form would produce, unlocked."""
         seeds = [dict(r) for r in self.db.query("SELECT doi, note FROM seed_study ORDER BY id")]
         return draft_protocol(
-            self.project.info(), self.project.exclusion_codes(), seeds=seeds
+            self.project.info(), self.project.exclusion_codes(), seeds=seeds,
+            stages=self.project.framework_stages(),
         )
 
     def current(self) -> ProtocolVersion | None:
