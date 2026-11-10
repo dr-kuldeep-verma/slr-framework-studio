@@ -145,7 +145,9 @@ class TestScreenPage:
         page._run_full()
         settle(page, qt_app)
         assert "not yet screened" in page.status_label.text()
-        assert page.queue_list.count() > 0
+        # The reviewer is asked only about what needs a person, so the queue
+        # may now be empty; whatever is in it is listed.
+        assert page.queue_list.count() == len(page._queue)
         assert window.project.db.scalar(
             "SELECT COUNT(*) FROM screening_status"
         ) > 0
@@ -163,6 +165,16 @@ class TestScreenPage:
     @pytest.fixture
     def screened(self, ready, qt_app, monkeypatch):
         window, page = ready
+        # The older routing queues unclear and adjudicated records, which
+        # gives the decision panel something to show.
+        import functools
+
+        from slr_studio.screening import ScreeningSettings
+
+        monkeypatch.setattr(
+            "slr_studio.ui.pages.screen_page.ScreeningSettings",
+            functools.partial(ScreeningSettings, unclear_goes_to_fulltext=False),
+        )
         monkeypatch.setattr(
             "slr_studio.ui.pages.screen_page.confirm_cost", lambda *a, **k: True
         )

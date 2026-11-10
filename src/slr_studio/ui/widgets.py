@@ -181,9 +181,19 @@ class SimpleTable(QTableWidget):
         parent: QWidget | None = None,
         *,
         stretch_columns: list[int] | None = None,
+        wrap: bool = False,
     ) -> None:
         super().__init__(0, len(headers), parent)
         self._fit_rows = 0
+        #: Prose cells (a reason, a quotation) shown whole over several lines
+        #: rather than cut off with "...".
+        self._wrap = wrap
+        if wrap:
+            self.setWordWrap(True)
+            self.setTextElideMode(Qt.TextElideMode.ElideNone)
+            self.horizontalHeader().sectionResized.connect(
+                lambda *args: self.resizeRowsToContents()
+            )
         self.setHorizontalHeaderLabels(headers)
         self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -208,7 +218,11 @@ class SimpleTable(QTableWidget):
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                     )
+                if self._wrap:
+                    item.setToolTip(item.text())
                 self.setItem(r, c, item)
+        if self._wrap:
+            self.resizeRowsToContents()
         if self._fit_rows:
             self._resize_to_rows()
 

@@ -215,14 +215,16 @@ def next_step(project) -> NextStep:
     if n_rapid:
         return NextStep(
             "Screen",
-            "Look again at records you left unclear quickly",
+            "Settle the records left unclear",
             "These were marked unclear within a few seconds of the previous "
-            "decision. Deciding them now saves fetching their PDFs.",
+            "decision. Each one left unclear is a PDF to fetch and read.",
             [
-                "On the Needs your decision tab, set Show to My 'still "
-                "unclear' decisions.",
-                "Decide each one again from its abstract and the screeners' "
-                "reasons. Your earlier decision stays in the audit log.",
+                "Press Let the AI settle unclear records… at the top of the "
+                "Screen page. The AI reads each abstract again and includes "
+                "or excludes it where it can; the rest go to full text. The "
+                "audit log records that you handed these to the AI.",
+                "Or decide them yourself: on Needs your decision, set Show to "
+                "My 'still unclear' decisions.",
             ],
             progress=f"{n_rapid} left unclear in under {RAPID_SECONDS} seconds",
             focus="revisit",

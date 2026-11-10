@@ -100,6 +100,14 @@ class ScreenPage(StagePage):
         self.qc_button.clicked.connect(self._run_qc)
         controls.addWidget(self.qc_button)
 
+        self.settle_button = QPushButton("Let the AI settle unclear records…")
+        self.settle_button.setToolTip(
+            "The AI reads each unclear record again and includes or excludes it "
+            "where the abstract allows. The rest go to full text."
+        )
+        self.settle_button.clicked.connect(self._settle_unclear)
+        controls.addWidget(self.settle_button)
+
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(self._request_stop)
         self.stop_button.setEnabled(False)
@@ -179,8 +187,9 @@ class ScreenPage(StagePage):
         self.decisions_table = SimpleTable(
             ["Reviewer", "Decision", "Code", "Reason", "Quotation"],
             stretch_columns=[3, 4],
+            wrap=True,
         )
-        right_layout.addWidget(self.decisions_table, 2)
+        right_layout.addWidget(self.decisions_table, 3)
 
         decision_row = QHBoxLayout()
         self.code_combo = QComboBox()
@@ -329,7 +338,7 @@ class ScreenPage(StagePage):
     def _busy(self, busy: bool) -> None:
         for button in (
             self.pilot_button, self.run_button, self.qc_button,
-            self.waive_button, self.export_button,
+            self.settle_button, self.waive_button, self.export_button,
         ):
             button.setEnabled(not busy)
         self.stop_button.setEnabled(busy)
@@ -357,7 +366,8 @@ class ScreenPage(StagePage):
 
     def _run_done(self, outcome) -> None:
         self.progress.hide()
-        parts = [f"{outcome.kind} run finished: {outcome.n_done} record(s)"]
+        kind = "second look" if outcome.kind == "adjudication" else outcome.kind
+        parts = [f"{kind} run finished: {outcome.n_done} record(s)"]
         if outcome.n_adjudicated:
             parts.append(f"{outcome.n_adjudicated} adjudicated")
         if outcome.n_qc_rescued:
@@ -444,6 +454,47 @@ class ScreenPage(StagePage):
             return
         self._start(
             engine.run_full, on_progress=self._progress, should_stop=self._should_stop
+        )
+
+    def _settle_unclear(self) -> None:
+        if self.project is None:
+            return
+        try:
+            engine = self._engine()
+            n = len(engine.unclear_to_settle())
+        except Exception as exc:
+            QMessageBox.critical(self, "Cannot do that yet", str(exc))
+            return
+        if not n:
+            QMessageBox.information(
+                self, "Nothing to settle",
+                "No record with an abstract is unclear. Records without an "
+                "abstract need your own decision or the full text.",
+            )
+            return
+        answer = QMessageBox.question(
+            self, "Let the AI settle unclear records",
+            f"{n} unclear record(s) have an abstract. The AI will read each "
+            "one again against the protocol and include or exclude it where "
+            "the abstract allows; the rest stay unclear and go to full text.\n\n"
+            "Where it decides, its decision replaces the 'unclear', including "
+            "any you made yourself. The audit log records that you handed "
+            "these decisions to the AI, and the AI-use statement reports it. "
+            "An exclusion of a record a screener wanted is still put in front "
+            "of you.\n\nGo ahead?",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            estimate = engine.estimate_second_look()
+        except Exception as exc:
+            QMessageBox.critical(self, "Cannot do that yet", str(exc))
+            return
+        if not confirm_cost(estimate, "Second look at unclear records", self):
+            return
+        self._start(
+            engine.settle_unclear, on_progress=self._progress,
+            should_stop=self._should_stop,
         )
 
     def _run_qc(self) -> None:
@@ -659,6 +710,10 @@ class ScreenPage(StagePage):
             )
         for button in (self.pilot_button, self.run_button, self.qc_button):
             button.setEnabled(locked)
+        n_unclear = int(self.project.db.scalar(
+            "SELECT COUNT(*) FROM screening_status WHERE decision = 'unclear'") or 0)
+        self.settle_button.setVisible(bool(n_unclear))
+        self.settle_button.setEnabled(locked)
 
         summary = engine.summary()
         pilot_state = (

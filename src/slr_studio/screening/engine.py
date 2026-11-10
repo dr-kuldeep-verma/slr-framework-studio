@@ -35,6 +35,8 @@ from .prompts import (
     adjudication_user,
     adjudicator_system,
     qc_system,
+    second_look_system,
+    second_look_user,
     screener_system,
     screening_user,
 )
@@ -77,6 +79,14 @@ class ScreeningSettings:
     audit_minimum: int = 5
     max_tokens: int = 700
     budget_usd: float | None = None
+    #: "Unclear" at title and abstract means "keep it for full text", which
+    #: needs no human. When true, unclear records go straight to full text
+    #: and the reviewer sees only what needs a person: records with no usable
+    #: abstract, an adjudicator's exclusion over a screener's inclusion, and
+    #: the random audit. Before 10 Nov 2026 every unclear record and every
+    #: adjudicated one was queued, which in the generative-AI-in-travel case
+    #: study sent 157 of 1,290 records to the reviewer.
+    unclear_goes_to_fulltext: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -88,6 +98,7 @@ class ScreeningSettings:
             "audit_minimum": self.audit_minimum,
             "max_tokens": self.max_tokens,
             "budget_usd": self.budget_usd,
+            "unclear_goes_to_fulltext": self.unclear_goes_to_fulltext,
             "prompt_version": PROMPT_VERSION,
         }
 
@@ -681,10 +692,16 @@ class ScreeningEngine:
             code = answer_a.exclusion_code or answer_b.exclusion_code
             decided_by = self.client.provider.model
             if decision == "unclear":
+                if self._to_fulltext(record):
+                    # Both unsure from the abstract: that is what full text is
+                    # for. Kept, without asking anyone.
+                    self._set_status(record_id, "unclear", "", source, decided_by)
+                    return
                 # Both unclear is not a settled answer, it is a question for a
                 # human. It is recorded so the counts are complete, and queued.
                 self._set_status(record_id, decision, code, source, decided_by,
-                                 needs_review=True, review_reason="both screeners unclear")
+                                 needs_review=True, review_reason=self._why_human(
+                                     record, "both screeners unclear"))
                 self._queue(record_id, "unclear", run_id,
                             "Both screeners answered unclear.")
                 outcome.n_queued += 1
@@ -693,10 +710,20 @@ class ScreeningEngine:
             self._maybe_audit(record_id, run_id, outcome)
             return
 
-        # A disagreement. Unclear against a definite answer is not worth a
-        # third call: it is already a question for a human.
-        if "unclear" in (answer_a.decision, answer_b.decision):
+        unsure = "unclear" in (answer_a.decision, answer_b.decision)
+        definite = None
+        if unsure:
             definite = answer_a if answer_b.decision == "unclear" else answer_b
+        if unsure and (definite.decision == "include" and self._to_fulltext(record)):
+            # One wants it, one is unsure: it goes on to full text. Nothing
+            # is lost and no one has to be asked.
+            self._set_status(record_id, "unclear", "", "unresolved",
+                             self.client.provider.model)
+            outcome.n_conflicts += 1
+            return
+        if unsure and not self.settings.unclear_goes_to_fulltext:
+            # The older rule: unclear against a definite answer is already a
+            # question for a human, so no third call is made.
             self._set_status(
                 record_id, "unclear", definite.exclusion_code, "unresolved",
                 self.client.provider.model, needs_review=True,
@@ -731,9 +758,14 @@ class ScreeningEngine:
         outcome.n_adjudicated += 1
 
         if ruling.decision == "unclear":
+            if self._to_fulltext(record):
+                self._set_status(record_id, "unclear", "", "adjudication",
+                                 self.client.provider.model)
+                return
             self._set_status(
                 record_id, "unclear", "", "adjudication", self.client.provider.model,
-                needs_review=True, review_reason="the adjudicator could not settle it",
+                needs_review=True, review_reason=self._why_human(
+                    record, "the adjudicator could not settle it"),
             )
             self._queue(record_id, "conflict", run_id,
                         "The screeners disagreed and the adjudicator was unsure.")
@@ -744,14 +776,38 @@ class ScreeningEngine:
             record_id, ruling.decision, ruling.exclusion_code, "adjudication",
             self.client.provider.model,
         )
-        # An adjudicated record is a borderline record by definition, so it
-        # goes in front of a human even though a decision now exists.
+        wanted = "include" in (answer_a.decision, answer_b.decision)
+        if (
+            self.settings.unclear_goes_to_fulltext
+            and not (ruling.decision == "exclude" and wanted)
+        ):
+            # Included, or excluded when no screener wanted it: full text and
+            # the quality-control pass catch the rest.
+            return
+        # An exclusion over a screener's inclusion loses the record for good
+        # unless someone looks, so a person does.
         self._queue(
             record_id, "conflict", run_id,
             f"Screeners disagreed ({answer_a.decision} vs {answer_b.decision}); "
             f"adjudicator chose {ruling.decision}.",
         )
         outcome.n_queued += 1
+
+    #: Shorter than this, an "abstract" is a title fragment or a publisher's
+    #: placeholder, and the AI's "unclear" is a question for a person.
+    MIN_ABSTRACT = 100
+
+    def _has_abstract(self, record: dict[str, Any]) -> bool:
+        return len((record.get("abstract") or "").strip()) >= self.MIN_ABSTRACT
+
+    def _to_fulltext(self, record: dict[str, Any]) -> bool:
+        """Whether an unclear record goes to full text without a human."""
+        return self.settings.unclear_goes_to_fulltext and self._has_abstract(record)
+
+    def _why_human(self, record: dict[str, Any], reason: str) -> str:
+        if self.settings.unclear_goes_to_fulltext and not self._has_abstract(record):
+            return "no usable abstract"
+        return reason
 
     def _maybe_audit(self, record_id: int, run_id: int, outcome: RunOutcome) -> None:
         """Put a share of agreed decisions in front of a human anyway.
@@ -816,6 +872,139 @@ class ScreeningEngine:
         outcome.n_included = counts.get("n_included", 0)
         outcome.n_excluded = counts.get("n_excluded", 0)
         outcome.n_unclear = counts.get("n_unclear", 0)
+
+    # -- a second look at unclear records -------------------------------------
+
+    def unclear_to_settle(self) -> list[dict[str, Any]]:
+        """Unclear records the AI could look at again: those with an abstract."""
+        rows = self.db.query(
+            "SELECT r.*, s.source AS status_source FROM screening_status s "
+            "JOIN record r ON r.id = s.record_id "
+            "WHERE s.decision = 'unclear' AND r.active = 1 ORDER BY r.id"
+        )
+        return [dict(r) for r in rows if self._has_abstract(dict(r))]
+
+    def estimate_second_look(self) -> CostEstimate:
+        protocol_text, _ = self._protocol_text()
+        system = second_look_system(protocol_text, self._codes())
+        prompts = [(system, second_look_user(r, self._earlier(r["id"])))
+                   for r in self.unclear_to_settle()]
+        return self.client.estimate(prompts, schema=ScreeningAnswer)
+
+    def _earlier(self, record_id: int) -> list[dict[str, Any]]:
+        labels = {"screener_a": "Screener A", "screener_b": "Screener B",
+                  "adjudicator": "Adjudicator", "human": "The reviewer"}
+        return [
+            {**d, "label": labels[d["reviewer_role"]]}
+            for d in self.decisions_for(record_id)
+            if d["reviewer_role"] in labels
+        ]
+
+    def settle_unclear(
+        self,
+        *,
+        actor: str | None = None,
+        on_progress: ProgressFn | None = None,
+        should_stop: StopFn | None = None,
+    ) -> RunOutcome:
+        """Ask the AI to settle unclear records from their abstracts.
+
+        The reviewer asks for this, so where the AI now decides, its decision
+        replaces an "unclear" -- including one the reviewer made -- and the
+        audit log records that the reviewer handed these decisions to the AI.
+        Records it still cannot settle stay unclear and go to full text. An
+        exclusion of a record a screener had wanted is put in front of the
+        reviewer, as at screening, because it would otherwise be lost.
+        """
+        actor = actor or self.audit.actor
+        protocol_text, protocol_id = self._protocol_text()
+        system = second_look_system(protocol_text, self._codes())
+        records = self.unclear_to_settle()
+        baseline = self._usage_baseline()
+        run_id = self._start_run("adjudication", len(records), protocol_id)
+        outcome = RunOutcome(run_id=run_id, kind="adjudication", n_records=len(records))
+        self.audit.log(
+            "screen", "unclear_delegated", entity="screening_run", entity_id=run_id,
+            detail={"n_records": len(records), "prompt_version": PROMPT_VERSION,
+                    "note": "The reviewer asked the AI to settle unclear records "
+                            "from their abstracts."},
+            actor=actor,
+        )
+        settled = {"include": 0, "exclude": 0, "unclear": 0, "queued": 0}
+        for index, record in enumerate(records, start=1):
+            if should_stop is not None and should_stop():
+                outcome.status = "paused"
+                outcome.messages.append(
+                    f"Paused after {outcome.n_done} of {len(records)} records.")
+                break
+            earlier = self._earlier(record["id"])
+            try:
+                result = self.client.ask(
+                    "screen:second_look", system=system,
+                    user=second_look_user(record, earlier),
+                    schema=ScreeningAnswer, entity="record", entity_id=record["id"],
+                    max_tokens=self.settings.max_tokens,
+                )
+            except (BudgetExceeded, RateLimitError) as exc:
+                outcome.status = "paused"
+                outcome.messages.append(str(exc))
+                break
+            except ProviderError as exc:
+                if not exc.retryable:
+                    self._close_failed_run(run_id, outcome, exc)
+                    raise
+                outcome.status = "paused"
+                outcome.messages.append(f"The provider kept failing ({exc}).")
+                break
+            answer: ScreeningAnswer = result.value
+            self._store_decision(
+                run_id, record["id"], "adjudicator", self.client.provider.model,
+                answer, result.ai_call_id,
+                quote_verified=self._quote_in_record(answer.quote, record),
+            )
+            settled[answer.decision] += 1
+            if answer.decision != "unclear":
+                previous = record.get("status_source")
+                self._set_status(record["id"], answer.decision,
+                                 answer.exclusion_code, "adjudication",
+                                 self.client.provider.model)
+                self.db.execute(
+                    "UPDATE review_queue SET resolved_at = ?, resolution = ? "
+                    "WHERE record_id = ? AND resolved_at IS NULL",
+                    (utc_now(), f"settled by second look: {answer.decision}", record["id"]),
+                )
+                self.audit.log(
+                    "screen", "unclear_settled", entity="record", entity_id=record["id"],
+                    detail={"decision": answer.decision,
+                            "exclusion_code": answer.exclusion_code,
+                            "was": f"unclear ({previous})"},
+                    actor=actor,
+                )
+                wanted = any(d["decision"] == "include" for d in earlier)
+                if answer.decision == "exclude" and wanted:
+                    self._queue(record["id"], "conflict", run_id,
+                                "Second look excluded a record a reviewer had "
+                                "wanted to include.")
+                    settled["queued"] += 1
+                    outcome.n_queued += 1
+            outcome.n_done = index
+            outcome.n_adjudicated += 1
+            if on_progress:
+                on_progress(index, len(records), f"Looked again at {index} of {len(records)}")
+
+        outcome.messages.append(
+            f"Included {settled['include']}, excluded {settled['exclude']}, "
+            f"still unclear {settled['unclear']} (these go to full text); "
+            f"{settled['queued']} exclusion(s) put in front of you."
+        )
+        self._tally(outcome)
+        self._apply_usage(outcome, baseline)
+        self._finish_run(run_id, outcome)
+        self.audit.log(
+            "screen", "screening_run", entity="screening_run", entity_id=run_id,
+            detail=outcome.as_dict(), actor=actor,
+        )
+        return outcome
 
     # -- quality control ---------------------------------------------------
 

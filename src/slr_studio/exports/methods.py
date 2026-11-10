@@ -68,6 +68,7 @@ _TASK_WORDS = {
     "screen:screener_b": "title and abstract screening",
     "screen:adjudicate": "adjudicating screening disagreements",
     "screen:qc": "quality control of screening decisions",
+    "screen:second_look": "a second look at records left unclear at screening",
     "fulltext:assess": "full-text eligibility assessment",
     "extract:report": "data extraction from included reports",
     "extract:direction": "blind verification of recorded directions",
@@ -131,6 +132,24 @@ def ai_use_statement(project) -> str:
         "for them; they have no per-call cost, and the model chose its own "
         "sampling temperature because that route does not accept one."
         if plan_calls
+        else ""
+    )
+    # Records the reviewer handed back to the AI to settle (the second look
+    # at unclear records). Said plainly, because those decisions were not
+    # checked one by one.
+    n_settled = int(project.db.scalar(
+        "SELECT COUNT(*) FROM audit_log WHERE action = 'unclear_settled'") or 0)
+    n_handed = int(project.db.scalar(
+        "SELECT COALESCE(SUM(json_extract(detail, '$.n_records')), 0) FROM audit_log "
+        "WHERE action = 'unclear_delegated'") or 0)
+    plan_sentence += (
+        f" At the reviewer's request, the model re-read {n_handed} record(s) "
+        "left unclear at title and abstract screening and settled "
+        f"{n_settled} of them as included or excluded; the reviewer did not "
+        "check these individually, except exclusions of records a screener "
+        "had wanted to include, which were put in front of the reviewer. The "
+        "rest went to full-text assessment."
+        if n_handed
         else ""
     )
     # One phrase per job, not one per task name: both screeners do the same

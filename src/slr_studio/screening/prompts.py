@@ -28,6 +28,8 @@ __all__ = [
     "screener_system",
     "adjudicator_system",
     "qc_system",
+    "second_look_system",
+    "second_look_user",
     "render_record",
     "screening_user",
     "adjudication_user",
@@ -134,6 +136,40 @@ def adjudicator_system(protocol_text: str, exclusion_codes: list[dict[str, Any]]
             'Add one more field: {"sided_with": "screener_a" | "screener_b" | "neither"}.',
         ]
     )
+
+
+def second_look_system(protocol_text: str, exclusion_codes: list[dict[str, Any]]) -> str:
+    return "\n\n".join(
+        [
+            "You are taking a second look at a record that was left unclear at "
+            "title and abstract screening, for a systematic review that "
+            "follows PRISMA 2020.",
+            "An unclear record goes on to full text, which costs the reviewer "
+            "a document to find and read. Read the record afresh against the "
+            "protocol. If it clearly fails an exclusion code, exclude it with "
+            "the first code it fails. If it clearly meets the criteria, include "
+            "it. Keep it unclear only when a specific criterion genuinely "
+            "cannot be judged from the title and abstract, and name that "
+            "criterion. Earlier answers are shown for context; do not defer "
+            "to them.",
+            _criteria_block(protocol_text, exclusion_codes),
+            _SHARED_RULES,
+        ]
+    )
+
+
+def second_look_user(record: dict[str, Any], earlier: list[dict[str, Any]]) -> str:
+    lines = [render_record(record), "EARLIER ANSWERS"]
+    for answer in earlier:
+        code = answer.get("exclusion_code") or "—"
+        lines.append(
+            f"{answer.get('label', 'A reviewer')}: {answer.get('decision')} (code {code}); "
+            f"{answer.get('reason', '')}"
+        )
+    if len(lines) == 2:
+        lines.append("(none recorded)")
+    lines.append("Decide this record yourself against the protocol.")
+    return "\n\n".join(lines)
 
 
 def qc_system(protocol_text: str, exclusion_codes: list[dict[str, Any]]) -> str:

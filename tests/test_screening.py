@@ -318,10 +318,24 @@ class TestFullRun:
         assert outcome.n_conflicts > 0
         assert outcome.n_adjudicated > 0
 
-    def test_an_adjudicated_record_still_goes_to_a_human(self, screened):
-        project, engine, _ = screened
+    def test_under_the_older_rule_an_adjudicated_record_goes_to_a_human(self, ready):
+        engine = make_engine(ready, unclear_goes_to_fulltext=False)
+        engine.waive_pilot("test")
+        engine.run_full(actor="human:test")
         reasons = {item["reason"] for item in engine.review_queue()}
         assert "conflict" in reasons
+
+    def test_only_what_needs_a_person_is_queued(self, screened):
+        project, engine, _ = screened
+        for item in engine.review_queue():
+            status = project.db.query_one(
+                "SELECT decision, review_reason FROM screening_status WHERE record_id = ?",
+                (item["record_id"],))
+            if item["reason"] == "random_audit":
+                continue
+            # Anything else is a lost-record risk or has no abstract to judge.
+            assert (status["decision"] == "exclude"
+                    or status["review_reason"] == "no usable abstract"), item
 
     def test_agreement_between_the_screeners_is_reported(self, screened):
         _, engine, outcome = screened
@@ -464,7 +478,9 @@ class TestQualityControl:
 class TestHumanDecisions:
     @pytest.fixture
     def screened(self, ready):
-        engine = make_engine(ready)
+        # The older routing queues every unclear and adjudicated record,
+        # which gives these tests records to decide.
+        engine = make_engine(ready, unclear_goes_to_fulltext=False)
         engine.waive_pilot("test")
         engine.run_full(actor="human:test")
         return ready, engine
@@ -593,3 +609,111 @@ class TestRevisitingUnclearDecisions:
         overrides = [e for e in ready.audit.entries()
                      if e.action == "human_override" and str(e.entity_id) == str(ids[0])]
         assert overrides and "unclear" in str(overrides[-1].detail)
+
+
+class TestUnclearGoesToFullText:
+    def _one_record(self, ready, answers, abstract="An abstract long enough to be read. " * 5):
+        record_id = ready.db.scalar("SELECT id FROM record WHERE active = 1 LIMIT 1")
+        ready.db.execute("UPDATE record SET abstract = ? WHERE id = ?", (abstract, record_id))
+        provider = ScriptedProvider(responses=[json.dumps(a) for a in answers])
+        engine = make_engine(ready, provider=provider)
+        record = dict(ready.db.query_one("SELECT * FROM record WHERE id = ?", (record_id,)))
+        return engine, record, provider
+
+    @staticmethod
+    def _answer(decision, code=""):
+        from slr_studio.screening.engine import ScreeningAnswer
+
+        return ScreeningAnswer(decision=decision, exclusion_code=code,
+                               reason="r", quote="")
+
+    def test_both_unclear_with_an_abstract_goes_to_full_text_unasked(self, ready):
+        from slr_studio.screening.engine import RunOutcome
+
+        engine, record, _ = self._one_record(ready, [])
+        outcome = RunOutcome(run_id=1, kind="full")
+        engine._settle(1, record, self._answer("unclear"), self._answer("unclear"),
+                       "", outcome, "human:test")
+        status = ready.db.query_one("SELECT * FROM screening_status WHERE record_id = ?",
+                                    (record["id"],))
+        assert status["decision"] == "unclear" and not status["needs_review"]
+        assert outcome.n_queued == 0
+
+    def test_include_and_unclear_goes_to_full_text_without_a_third_call(self, ready):
+        from slr_studio.screening.engine import RunOutcome
+
+        engine, record, provider = self._one_record(ready, [])
+        outcome = RunOutcome(run_id=1, kind="full")
+        engine._settle(1, record, self._answer("include"), self._answer("unclear"),
+                       "", outcome, "human:test")
+        assert ready.db.scalar("SELECT COUNT(*) FROM ai_call") == 0
+        assert outcome.n_adjudicated == 0 and outcome.n_queued == 0
+
+    def test_without_an_abstract_unclear_goes_to_the_reviewer(self, ready):
+        from slr_studio.screening.engine import RunOutcome
+
+        engine, record, _ = self._one_record(ready, [], abstract="")
+        run_id = engine._start_run("full", 1, None)
+        outcome = RunOutcome(run_id=run_id, kind="full")
+        engine._settle(run_id, record, self._answer("unclear"), self._answer("unclear"),
+                       "", outcome, "human:test")
+        status = ready.db.query_one("SELECT * FROM screening_status WHERE record_id = ?",
+                                    (record["id"],))
+        assert status["needs_review"] and status["review_reason"] == "no usable abstract"
+        assert outcome.n_queued == 1
+
+
+
+class TestSecondLook:
+    def test_the_ai_settles_unclear_records_and_the_handover_is_logged(self, ready):
+        engine = make_engine(ready, unclear_goes_to_fulltext=False)
+        engine.waive_pilot("test")
+        engine.run_full(actor="human:test")
+        # The reviewer left some records unclear.
+        for item in engine.review_queue():
+            engine.resolve(item["record_id"], "unclear", reason="quick", actor="human:test")
+        before = len(engine.unclear_to_settle())
+        if not before:
+            pytest.skip("the mock left nothing unclear with an abstract")
+        excluder = ScriptedProvider(default=json.dumps({
+            "decision": "exclude", "exclusion_code": "E1",
+            "reason": "clearly fails E1", "quote": ""}))
+        second = make_engine(ready, provider=excluder)
+        outcome = second.settle_unclear(actor="human:test")
+        assert outcome.n_done == before
+        assert not second.unclear_to_settle()
+        actions = [e.action for e in ready.audit.entries()]
+        assert "unclear_delegated" in actions and "unclear_settled" in actions
+        assert any("excluded" in m for m in outcome.messages)
+
+    def test_records_still_unclear_stay_for_full_text(self, ready):
+        engine = make_engine(ready, unclear_goes_to_fulltext=False)
+        engine.waive_pilot("test")
+        engine.run_full(actor="human:test")
+        for item in engine.review_queue():
+            engine.resolve(item["record_id"], "unclear", reason="quick", actor="human:test")
+        unsure = ScriptedProvider(default=json.dumps({
+            "decision": "unclear", "exclusion_code": "",
+            "reason": "the population is not stated", "quote": ""}))
+        second = make_engine(ready, provider=unsure)
+        n = len(second.unclear_to_settle())
+        second.settle_unclear(actor="human:test")
+        assert len(second.unclear_to_settle()) == n
+
+
+def test_the_ai_use_statement_reports_the_handover(ready):
+    from slr_studio.exports.methods import ai_use_statement
+
+    engine = make_engine(ready, unclear_goes_to_fulltext=False)
+    engine.waive_pilot("test")
+    engine.run_full(actor="human:test")
+    for item in engine.review_queue():
+        engine.resolve(item["record_id"], "unclear", reason="quick", actor="human:test")
+    if not engine.unclear_to_settle():
+        pytest.skip("nothing unclear with an abstract")
+    excluder = ScriptedProvider(default=json.dumps({
+        "decision": "exclude", "exclusion_code": "E1", "reason": "fails E1", "quote": ""}))
+    make_engine(ready, provider=excluder).settle_unclear(actor="human:test")
+    statement = ai_use_statement(ready)
+    assert "At the reviewer's request, the model re-read" in statement
+    assert "did not check these individually" in statement

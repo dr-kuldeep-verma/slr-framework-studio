@@ -17,6 +17,13 @@ def page(monkeypatch, tmp_path):
     QApplication.instance() or QApplication([])
     from slr_studio.ui.pages import ScreenPage
 
+    import functools
+
+    import slr_studio.screening as screening
+
+    # The older routing leaves records in the queue for these tests to decide.
+    monkeypatch.setattr(screening, "ScreeningSettings", functools.partial(
+        screening.ScreeningSettings, unclear_goes_to_fulltext=False))
     project = build_demo_project(tmp_path / "demo", screen=True)
     screen = ScreenPage()
     screen.set_project(project)
